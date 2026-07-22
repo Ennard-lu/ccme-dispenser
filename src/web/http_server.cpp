@@ -10,6 +10,7 @@
 #ifdef CCME_HAS_OPENCV
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
 #endif
 
@@ -119,7 +120,7 @@ std::expected<bool, WebError> HttpServer::Start() {
 
             res.set_chunked_content_provider(
                 "multipart/x-mixed-replace; boundary=frame",
-                [cap](httplib::DataSink& sink) {
+                [cap](size_t, httplib::DataSink& sink) {
                     cv::Mat frame;
                     while (sink.is_writable()) {
                         if (cap->read(frame) && !frame.empty()) {
@@ -127,13 +128,14 @@ std::expected<bool, WebError> HttpServer::Start() {
                             cv::imencode(".jpg", frame, buf,
                                          {cv::IMWRITE_JPEG_QUALITY, 80});
 
-                            std::string header =
+                            const char hdr[] =
                                 "--frame\r\n"
                                 "Content-Type: image/jpeg\r\n\r\n";
-                            sink.write(header);
+                            sink.write(hdr, sizeof(hdr) - 1);
                             sink.write(reinterpret_cast<const char*>(buf.data()),
                                        buf.size());
-                            sink.write("\r\n");
+                            const char tail[] = "\r\n";
+                            sink.write(tail, 2);
                         }
                         std::this_thread::sleep_for(
                             std::chrono::milliseconds(33));
