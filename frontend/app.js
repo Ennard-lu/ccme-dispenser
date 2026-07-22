@@ -9,11 +9,13 @@ const currentVialEl = document.getElementById('current-vial');
 const totalVialsEl = document.getElementById('total-vials');
 const currentStateEl = document.getElementById('current-state');
 const vialGrid = document.getElementById('vial-grid');
-const videoStream = document.getElementById('video-stream');
+const videoMse = document.getElementById('video-mse');
+const videoMjpeg = document.getElementById('video-mjpeg');
 const videoOverlay = document.getElementById('video-overlay');
 const stirrerDetailEl = document.getElementById('stirrer-detail');
 
 let pollTimer = null;
+let mpegtsPlayer = null;
 
 function setStatus(state) {
     statusEl.className = 'status-badge';
@@ -196,13 +198,62 @@ function stopPolling() {
     }
 }
 
-videoStream.addEventListener('load', () => {
+// ── Video streaming: MSE (low-latency) with MJPEG fallback ──
+
+function initVideoStream() {
+    videoMjpeg.style.display = 'none';
+    videoMse.style.display = 'block';
+
+    if (typeof mpegts !== 'undefined' && mpegts.isSupported()) {
+        mpegtsPlayer = mpegts.createPlayer({
+            type: 'mpegts',
+            url: `${API_BASE}/hls/stream`
+        }, {
+            enableWorker: true,
+            enableStashBuffer: false,
+            stashInitialSize: 128,
+            autoCleanupSourceBuffer: true,
+            autoCleanupMaxBackwardDuration: 5,
+            autoCleanupMinBackwardDuration: 3,
+            liveBufferLatencyChasing: true,
+            liveBufferLatencyMaxLatency: 1.5,
+            liveBufferLatencyMinRemain: 0.3,
+        });
+        mpegtsPlayer.attachMediaElement(videoMse);
+        mpegtsPlayer.load();
+        mpegtsPlayer.play().then(() => {
+            videoOverlay.classList.add('hidden');
+        }).catch(() => {
+            fallbackToMjpeg();
+        });
+        mpegtsPlayer.on(mpegts.Events.ERROR, () => {
+            fallbackToMjpeg();
+        });
+    } else {
+        fallbackToMjpeg();
+    }
+}
+
+function fallbackToMjpeg() {
+    if (mpegtsPlayer) {
+        mpegtsPlayer.destroy();
+        mpegtsPlayer = null;
+    }
+    videoMse.style.display = 'none';
+    videoMjpeg.style.display = 'block';
+}
+
+videoMjpeg.addEventListener('load', () => {
     videoOverlay.classList.add('hidden');
 });
 
-videoStream.addEventListener('error', () => {
+videoMjpeg.addEventListener('error', () => {
     videoOverlay.classList.remove('hidden');
     videoOverlay.querySelector('span').textContent = 'Stream unavailable';
+});
+
+videoMse.addEventListener('playing', () => {
+    videoOverlay.classList.add('hidden');
 });
 
 btnStart.addEventListener('click', startWorkflow);
@@ -211,3 +262,4 @@ btnStop.addEventListener('click', stopWorkflow);
 fetchStatus();
 updateVialGrid(16, 0, 'idle');
 startPolling();
+initVideoStream();
