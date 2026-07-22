@@ -11,6 +11,7 @@ const currentStateEl = document.getElementById('current-state');
 const vialGrid = document.getElementById('vial-grid');
 const videoStream = document.getElementById('video-stream');
 const videoOverlay = document.getElementById('video-overlay');
+const stirrerDetailEl = document.getElementById('stirrer-detail');
 
 let pollTimer = null;
 
@@ -93,10 +94,17 @@ async function fetchStatus() {
             }
 
             if (m.stirrer) {
-                updateModuleStatus('mod-stirrer', m.stirrer.running,
-                    m.stirrer.running ? 'Spinning' : 'OFF');
+                const s = m.stirrer;
+                const parts = [];
+                if (s.stirring) parts.push(`${s.speed} RPM`);
+                if (s.heating) parts.push(`${s.set_temp.toFixed(1)}°C / ${s.temp.toFixed(1)}°C`);
+                else if (s.temp > 0) parts.push(`${s.temp.toFixed(1)}°C`);
+                const label = s.stirring || s.heating ? parts.join(' | ') : 'OFF';
+                updateModuleStatus('mod-stirrer', s.stirring || s.heating, label);
+                stirrerDetailEl.textContent = parts.length > 0 ? '' : '';
             } else {
                 updateModuleOffline('mod-stirrer');
+                stirrerDetailEl.textContent = '';
             }
 
             if (m.camera) {

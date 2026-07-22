@@ -175,13 +175,39 @@ int main() {
                         *poll_conn,
                         sdbus::ServiceName{kStirrerBus},
                         sdbus::ObjectPath{kStirrerPath});
-                    bool r = false;
-                    proxy->callMethod("IsRunning")
+                    bool stirring = false;
+                    proxy->callMethod("IsStirring")
                         .onInterface(kStirrerIface)
-                        .storeResultsTo(r);
-                    status["modules"]["stirrer"] = {{"running", r}};
+                        .storeResultsTo(stirring);
+                    bool heating = false;
+                    proxy->callMethod("IsHeating")
+                        .onInterface(kStirrerIface)
+                        .storeResultsTo(heating);
+                    int speed = 0;
+                    proxy->callMethod("GetSpeed")
+                        .onInterface(kStirrerIface)
+                        .storeResultsTo(speed);
+                    double set_temp = 0.0;
+                    proxy->callMethod("GetSetTemp")
+                        .onInterface(kStirrerIface)
+                        .storeResultsTo(set_temp);
+                    double temp = 0.0;
+                    proxy->callMethod("GetActualTemp")
+                        .onInterface(kStirrerIface)
+                        .storeResultsTo(temp);
+                    status["modules"]["stirrer"] = {
+                        {"stirring", stirring},
+                        {"heating", heating},
+                        {"speed", speed},
+                        {"set_temp", set_temp},
+                        {"temp", temp}};
                 } catch (...) {
-                    status["modules"]["stirrer"] = {{"running", false}};
+                    status["modules"]["stirrer"] = {
+                        {"stirring", false},
+                        {"heating", false},
+                        {"speed", 0},
+                        {"set_temp", 0.0},
+                        {"temp", 0.0}};
                 }
 
                 status["modules"]["camera"] = {{"connected", true}};
@@ -223,7 +249,7 @@ int main() {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
-        server->Stop();
+        (void)server->Stop();
         g_running = false;
 
         if (poller_thread.joinable()) poller_thread.join();

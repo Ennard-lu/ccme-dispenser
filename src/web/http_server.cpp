@@ -33,7 +33,7 @@ HttpServer::HttpServer(ServerConfig config)
 
 HttpServer::~HttpServer() {
     if (impl_ && impl_->running) {
-        Stop();
+        (void)Stop();
     }
 }
 

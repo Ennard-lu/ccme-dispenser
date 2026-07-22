@@ -32,8 +32,32 @@ int main() {
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to stop stirrer"};
                 return *result;
             }),
-            sdbus::registerMethod("IsRunning").implementedAs([&stirrer]() -> bool {
-                return stirrer->IsRunning();
+            sdbus::registerMethod("IsStirring").implementedAs([&stirrer]() -> bool {
+                return stirrer->IsStirring();
+            }),
+            sdbus::registerMethod("StartHeat").implementedAs([&stirrer](double temp_c) -> bool {
+                auto result = stirrer->StartHeat(temp_c);
+                if (!result)
+                    throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to start heating"};
+                return *result;
+            }),
+            sdbus::registerMethod("StopHeat").implementedAs([&stirrer]() -> bool {
+                auto result = stirrer->StopHeat();
+                if (!result)
+                    throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to stop heating"};
+                return *result;
+            }),
+            sdbus::registerMethod("IsHeating").implementedAs([&stirrer]() -> bool {
+                return stirrer->IsHeating();
+            }),
+            sdbus::registerMethod("GetSpeed").implementedAs([&stirrer]() -> int {
+                return stirrer->GetSpeed();
+            }),
+            sdbus::registerMethod("GetSetTemp").implementedAs([&stirrer]() -> double {
+                return stirrer->GetSetTemp();
+            }),
+            sdbus::registerMethod("GetActualTemp").implementedAs([&stirrer]() -> double {
+                return stirrer->GetActualTemp();
             })
         ).forInterface(kInterfaceName);
 

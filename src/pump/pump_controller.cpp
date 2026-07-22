@@ -81,7 +81,7 @@ PumpController::PumpController(PumpId id)
 
 PumpController::~PumpController() {
     if (impl_ && impl_->running) {
-        Stop();
+        (void)Stop();
     }
 }
 
@@ -109,7 +109,7 @@ std::expected<bool, PumpError> PumpController::Start(double volume_ml) {
 
     impl_->timer_thread = std::thread([this, duration_ms]() {
         std::this_thread::sleep_for(duration_ms);
-        Stop();
+        (void)Stop();
     });
     impl_->timer_thread.detach();
 

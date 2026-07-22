@@ -200,6 +200,13 @@ section h2 {
     color: #888;
 }
 
+.module-detail {
+    font-size: 11px;
+    color: #1a73e8;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
 .module-indicator {
     width: 10px;
     height: 10px;

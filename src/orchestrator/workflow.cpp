@@ -27,6 +27,7 @@ constexpr const char* kFmcObjectPath = "/org/ccme/fmc";
 constexpr const char* kFmcInterface = "org.ccme.FMC.Control";
 
 constexpr int kStirSpeedRpm = 200;
+constexpr double kHeatTempC = CCME_STIRRER_HEAT_TEMP;
 constexpr int kDissolutionPollMs = 1000;
 
 class DbusProxy {
@@ -83,6 +84,28 @@ public:
         } catch (...) { return false; }
     }
 
+    bool StirrerHeatStart(double temp_c) {
+        if (!conn_) return false;
+        try {
+            auto proxy = sdbus::createProxy(*conn_,
+                sdbus::ServiceName{kStirrerBusName},
+                sdbus::ObjectPath{kStirrerObjectPath});
+            proxy->callMethod("StartHeat").onInterface(kStirrerInterface).withArguments(temp_c);
+            return true;
+        } catch (...) { return false; }
+    }
+
+    bool StirrerHeatStop() {
+        if (!conn_) return false;
+        try {
+            auto proxy = sdbus::createProxy(*conn_,
+                sdbus::ServiceName{kStirrerBusName},
+                sdbus::ObjectPath{kStirrerObjectPath});
+            proxy->callMethod("StopHeat").onInterface(kStirrerInterface);
+            return true;
+        } catch (...) { return false; }
+    }
+
     bool CheckDissolution() {
         if (!conn_) return false;
         try {
@@ -135,6 +158,12 @@ struct Workflow::Impl {
             std::this_thread::sleep_for(std::chrono::milliseconds(
                 static_cast<int>(volume_ml / CCME_PUMP0_FLOW_RATE * 1000) + 500));
 
+            state = WorkflowState::kHeating;
+            if (!dbus.StirrerHeatStart(kHeatTempC)) {
+                state = WorkflowState::kError;
+                return;
+            }
+
             state = WorkflowState::kStirring;
             if (!dbus.StirrerStart(kStirSpeedRpm)) {
                 state = WorkflowState::kError;
@@ -150,6 +179,7 @@ struct Workflow::Impl {
 
             if (stop_requested) break;
 
+            dbus.StirrerHeatStop();
             dbus.StirrerStop();
 
             state = WorkflowState::kMovingToVial;
@@ -181,7 +211,7 @@ Workflow::Workflow()
 Workflow::~Workflow() {
     if (impl_ && impl_->state != WorkflowState::kIdle &&
         impl_->state != WorkflowState::kComplete) {
-        Stop();
+        (void)Stop();
     }
 }
 
@@ -234,6 +264,7 @@ std::string Workflow::GetStateString() const {
     switch (impl_->state) {
         case WorkflowState::kIdle:                return "idle";
         case WorkflowState::kInjectingWater:      return "injecting_water";
+        case WorkflowState::kHeating:             return "heating";
         case WorkflowState::kStirring:            return "stirring";
         case WorkflowState::kCheckingDissolution:  return "checking_dissolution";
         case WorkflowState::kDispensing:          return "dispensing";

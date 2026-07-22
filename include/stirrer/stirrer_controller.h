@@ -29,7 +29,14 @@ public:
 
     std::expected<bool, StirrerError> StartStir(int speed_rpm);
     std::expected<bool, StirrerError> StopStir();
-    [[nodiscard]] bool IsRunning() const;
+    [[nodiscard]] bool IsStirring() const;
+
+    std::expected<bool, StirrerError> StartHeat(double temp_c);
+    std::expected<bool, StirrerError> StopHeat();
+    [[nodiscard]] bool IsHeating() const;
+    [[nodiscard]] int GetSpeed() const;
+    [[nodiscard]] double GetSetTemp() const;
+    [[nodiscard]] double GetActualTemp() const;
 
 private:
     struct Impl;
