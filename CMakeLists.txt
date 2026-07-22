@@ -19,8 +19,10 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 # ──────────────────────────────────────────────
 
 # Pump options
-set(CCME_PUMP_PWM_PATH "/sys/class/pwm/pwmchip0" CACHE STRING "PWM device path")
-set(CCME_PUMP_PWM_CHANNEL 0 CACHE STRING "PWM channel index")
+set(CCME_PUMP0_PWM_PATH "/sys/class/pwm/pwmchip0" CACHE STRING "Pump 0 PWM device path")
+set(CCME_PUMP0_PWM_CHANNEL 0 CACHE STRING "Pump 0 PWM channel index")
+set(CCME_PUMP1_PWM_PATH "/sys/class/pwm/pwmchip2" CACHE STRING "Pump 1 PWM device path")
+set(CCME_PUMP1_PWM_CHANNEL 0 CACHE STRING "Pump 1 PWM channel index")
 set(CCME_PUMP_GPIO_DIR_PIN 18 CACHE STRING "GPIO direction pin number")
 set(CCME_PUMP_FLOW_RATE 1.0 CACHE STRING "Peristaltic pump flow rate (ml/s)")
 set(CCME_PUMP_PWM_PERIOD_US 20000 CACHE STRING "PWM period in microseconds")
@@ -35,7 +37,7 @@ set(CCME_CAMERA_CHECK_INTERVAL_MS 1000 CACHE STRING "Dissolution check interval 
 
 # FMC options
 set(CCME_FMC_CONTROLLER_IP "192.168.1.10" CACHE STRING "FMC4030 controller IP address")
-set(CCME_FMC_CONTROLLER_PORT 8080 CACHE STRING "FMC4030 controller port")
+set(CCME_FMC_CONTROLLER_PORT 8088 CACHE STRING "FMC4030 controller port")
 set(CCME_FMC_CARD_ID 0 CACHE STRING "FMC4030 card ID")
 
 # Web options
@@ -88,8 +90,10 @@ set_target_properties(fmc4030_sdk PROPERTIES
 # ──────────────────────────────────────────────
 
 add_compile_definitions(
-    CCME_PUMP_PWM_PATH="${CCME_PUMP_PWM_PATH}"
-    CCME_PUMP_PWM_CHANNEL=${CCME_PUMP_PWM_CHANNEL}
+    CCME_PUMP0_PWM_PATH="${CCME_PUMP0_PWM_PATH}"
+    CCME_PUMP0_PWM_CHANNEL=${CCME_PUMP0_PWM_CHANNEL}
+    CCME_PUMP1_PWM_PATH="${CCME_PUMP1_PWM_PATH}"
+    CCME_PUMP1_PWM_CHANNEL=${CCME_PUMP1_PWM_CHANNEL}
     CCME_PUMP_GPIO_DIR_PIN=${CCME_PUMP_GPIO_DIR_PIN}
     CCME_PUMP_FLOW_RATE=${CCME_PUMP_FLOW_RATE}
     CCME_PUMP_PWM_PERIOD_US=${CCME_PUMP_PWM_PERIOD_US}

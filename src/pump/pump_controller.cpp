@@ -9,9 +9,19 @@ namespace ccme::pump {
 
 namespace {
 
+const char* PwmChipPath(PumpId id) {
+    return (id == PumpId::kPump1) ? CCME_PUMP0_PWM_PATH
+                                  : CCME_PUMP1_PWM_PATH;
+}
+
+int PwmChannel(PumpId id) {
+    return (id == PumpId::kPump1) ? CCME_PUMP0_PWM_CHANNEL
+                                  : CCME_PUMP1_PWM_CHANNEL;
+}
+
 std::string PwmDir(PumpId id) {
-    int idx = (id == PumpId::kPump1) ? CCME_PUMP_PWM_CHANNEL : CCME_PUMP_PWM_CHANNEL + 1;
-    return std::string(CCME_PUMP_PWM_PATH) + "/pwm" + std::to_string(idx);
+    int ch = PwmChannel(id);
+    return std::string(PwmChipPath(id)) + "/pwm" + std::to_string(ch);
 }
 
 void WriteFile(const std::string& path, const std::string& value) {
@@ -19,9 +29,9 @@ void WriteFile(const std::string& path, const std::string& value) {
     ofs << value;
 }
 
-void ExportPwmChip() {
-    WriteFile(std::string(CCME_PUMP_PWM_PATH) + "/export",
-              std::to_string(CCME_PUMP_PWM_CHANNEL));
+void ExportPwmChip(PumpId id) {
+    WriteFile(std::string(PwmChipPath(id)) + "/export",
+              std::to_string(PwmChannel(id)));
 }
 
 void ExportGpio(int pin) {
@@ -56,7 +66,7 @@ struct PumpController::Impl {
     }
 
     void ExportPins() {
-        ExportPwmChip();
+        ExportPwmChip(id);
         ExportGpio(gpio_dir_pin);
     }
 
