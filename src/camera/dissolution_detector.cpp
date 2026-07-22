@@ -93,7 +93,7 @@ std::expected<bool, CameraError> DissolutionDetector::Connect() {
     }
 
 #ifdef CCME_HAS_OPENCV
-    if (!impl_->cap.open(impl_->stream_url, cv::CAP_GSTREAMER)) {
+    if (!impl_->cap.open(impl_->stream_url, cv::CAP_FFMPEG)) {
         return std::unexpected(CameraError::kConnectionFailed);
     }
     impl_->connected = true;

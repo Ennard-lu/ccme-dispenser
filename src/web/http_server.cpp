@@ -111,7 +111,7 @@ std::expected<bool, WebError> HttpServer::Start() {
         impl_->svr->Get("/api/stream", [stream_url](const httplib::Request&,
                                                      httplib::Response& res) {
             auto cap = std::make_shared<cv::VideoCapture>(
-                stream_url, cv::CAP_GSTREAMER);
+                stream_url, cv::CAP_FFMPEG);
             if (!cap->isOpened()) {
                 res.status = 503;
                 res.set_content("Camera stream not available", "text/plain");

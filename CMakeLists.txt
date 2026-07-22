@@ -38,7 +38,7 @@ set(CCME_STIRRER_BAUD_RATE 9600 CACHE STRING "Serial port baud rate")
 set(CCME_STIRRER_HEAT_TEMP 50.0 CACHE STRING "Default heating temperature (°C)")
 
 # Camera options
-set(CCME_CAMERA_STREAM_URL "tcpclientsrc host=127.0.0.1 port=7777 ! h264parse ! avdec_h264 ! videoconvert ! appsink" CACHE STRING "GStreamer video pipeline")
+set(CCME_CAMERA_STREAM_URL "tcp://127.0.0.1:7777" CACHE STRING "GStreamer video pipeline")
 set(CCME_CAMERA_CHECK_INTERVAL_MS 1000 CACHE STRING "Dissolution check interval (ms)")
 
 # FMC options
