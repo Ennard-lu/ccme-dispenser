@@ -141,12 +141,15 @@ add_subdirectory(src/web)
 add_subdirectory(src/orchestrator)
 
 # ──────────────────────────────────────────────
-# Install rules
+# Install rules (split into backend / frontend components)
+# Usage:
+#   cmake --install build --component backend
+#   cmake --install build --component frontend
+#   cmake --install build                    # installs everything
 # ──────────────────────────────────────────────
 
 include(GNUInstallDirs)
 
-# Install prefix subpaths (relative to CMAKE_INSTALL_PREFIX)
 set(CCME_INSTALL_FRONTEND_DIR "share/ccme-dispenser/frontend" CACHE STRING
     "Frontend install directory (relative to install prefix)")
 set(CCME_INSTALL_NGINX_DIR "${CMAKE_INSTALL_SYSCONFDIR}/nginx/sites-available" CACHE STRING
@@ -154,30 +157,38 @@ set(CCME_INSTALL_NGINX_DIR "${CMAKE_INSTALL_SYSCONFDIR}/nginx/sites-available" C
 set(CCME_INSTALL_LIB_DIR "lib/ccme-dispenser" CACHE STRING
     "SDK library install directory (relative to install prefix)")
 
-# Backend binaries → bin/
+# ── backend component ─────────────────────────
 install(TARGETS ccme-pump ccme-stirrer ccme-camera ccme-fmc ccme-web ccme-dispenser
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    COMPONENT backend
 )
 
-# Frontend resources
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/frontend/
-    DESTINATION ${CCME_INSTALL_FRONTEND_DIR}
-    FILES_MATCHING PATTERN "*.html" PATTERN "*.css" PATTERN "*.js"
-)
-
-# nginx config
-install(FILES ${CMAKE_SOURCE_DIR}/nginx/nginx.conf
-    DESTINATION ${CCME_INSTALL_NGINX_DIR}
-    RENAME ccme.conf
-)
-
-# Startup script
 install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/start_services.sh
     DESTINATION ${CMAKE_INSTALL_BINDIR}
     RENAME ccme-start
+    COMPONENT backend
 )
 
-# FMC4030 SDK shared library
+install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/setup-ssl.sh
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+    RENAME ccme-setup-ssl
+    COMPONENT backend
+)
+
 install(FILES ${CMAKE_SOURCE_DIR}/3rdparty/FMC_Controler/lib/libFMC4030_2009_1.so
     DESTINATION ${CCME_INSTALL_LIB_DIR}
+    COMPONENT backend
+)
+
+# ── frontend component ────────────────────────
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/frontend/
+    DESTINATION ${CCME_INSTALL_FRONTEND_DIR}
+    COMPONENT frontend
+    FILES_MATCHING PATTERN "*.html" PATTERN "*.css" PATTERN "*.js"
+)
+
+install(FILES ${CMAKE_SOURCE_DIR}/nginx/nginx.conf
+    DESTINATION ${CCME_INSTALL_NGINX_DIR}
+    RENAME ccme.conf
+    COMPONENT frontend
 )
