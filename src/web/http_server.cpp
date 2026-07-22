@@ -4,6 +4,14 @@
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <iostream>
+#include <thread>
+#include <chrono>
+
+#ifdef CCME_HAS_OPENCV
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/videoio.hpp>
+#endif
 
 namespace ccme::web {
 
@@ -95,6 +103,46 @@ std::expected<bool, WebError> HttpServer::Start() {
         }
         res.set_content(j.dump(), "application/json");
     });
+
+#ifdef CCME_HAS_OPENCV
+    if (!impl_->config.stream_url.empty()) {
+        auto stream_url = impl_->config.stream_url;
+        impl_->svr->Get("/api/stream", [stream_url](const httplib::Request&,
+                                                     httplib::Response& res) {
+            auto cap = std::make_shared<cv::VideoCapture>(
+                stream_url, cv::CAP_GSTREAMER);
+            if (!cap->isOpened()) {
+                res.status = 503;
+                res.set_content("Camera stream not available", "text/plain");
+                return;
+            }
+
+            res.set_chunked_content_provider(
+                "multipart/x-mixed-replace; boundary=frame",
+                [cap](httplib::DataSink& sink) {
+                    cv::Mat frame;
+                    while (sink.is_writable()) {
+                        if (cap->read(frame) && !frame.empty()) {
+                            std::vector<uchar> buf;
+                            cv::imencode(".jpg", frame, buf,
+                                         {cv::IMWRITE_JPEG_QUALITY, 80});
+
+                            std::string header =
+                                "--frame\r\n"
+                                "Content-Type: image/jpeg\r\n\r\n";
+                            sink.write(header);
+                            sink.write(reinterpret_cast<const char*>(buf.data()),
+                                       buf.size());
+                            sink.write("\r\n");
+                        }
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(33));
+                    }
+                    return true;
+                });
+        });
+    }
+#endif
 
     impl_->svr->set_mount_point("/", impl_->config.static_dir);
 

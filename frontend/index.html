@@ -10,13 +10,70 @@
     <div class="container">
         <header>
             <h1>CCME Dispenser</h1>
-            <div id="status-indicator" class="status-idle">
+            <div id="status-indicator" class="status-badge status-idle">
                 <span class="status-dot"></span>
                 <span id="status-text">Idle</span>
             </div>
         </header>
 
-        <main>
+        <main class="dashboard">
+            <section class="video-panel">
+                <h2>Live Stream</h2>
+                <div class="video-container">
+                    <img id="video-stream" src="/api/stream" alt="Camera Stream"
+                         onerror="this.src=''; this.alt='Stream unavailable'">
+                    <div class="video-overlay" id="video-overlay">
+                        <span>Connecting...</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="modules-panel">
+                <h2>Module Status</h2>
+                <div class="module-grid">
+                    <div class="module-card" id="mod-pump">
+                        <div class="module-icon pump-icon">P1</div>
+                        <div class="module-info">
+                            <div class="module-name">Pump 1</div>
+                            <div class="module-status" id="pump1-status">OFF</div>
+                        </div>
+                        <div class="module-indicator offline"></div>
+                    </div>
+                    <div class="module-card" id="mod-pump2">
+                        <div class="module-icon pump-icon">P2</div>
+                        <div class="module-info">
+                            <div class="module-name">Pump 2</div>
+                            <div class="module-status" id="pump2-status">OFF</div>
+                        </div>
+                        <div class="module-indicator offline"></div>
+                    </div>
+                    <div class="module-card" id="mod-stirrer">
+                        <div class="module-icon stirrer-icon">S</div>
+                        <div class="module-info">
+                            <div class="module-name">Stirrer</div>
+                            <div class="module-status" id="stirrer-status">OFF</div>
+                        </div>
+                        <div class="module-indicator offline"></div>
+                    </div>
+                    <div class="module-card" id="mod-camera">
+                        <div class="module-icon camera-icon">C</div>
+                        <div class="module-info">
+                            <div class="module-name">Camera</div>
+                            <div class="module-status" id="camera-status">Offline</div>
+                        </div>
+                        <div class="module-indicator offline"></div>
+                    </div>
+                    <div class="module-card" id="mod-fmc">
+                        <div class="module-icon fmc-icon">F</div>
+                        <div class="module-info">
+                            <div class="module-name">FMC Stage</div>
+                            <div class="module-status" id="fmc-status">Offline</div>
+                        </div>
+                        <div class="module-indicator offline"></div>
+                    </div>
+                </div>
+            </section>
+
             <section class="control-panel">
                 <h2>Workflow Control</h2>
                 <div class="input-group">
@@ -27,17 +84,15 @@
                     <button id="btn-start" class="btn btn-primary">Start</button>
                     <button id="btn-stop" class="btn btn-danger" disabled>Stop</button>
                 </div>
-            </section>
-
-            <section class="info-panel">
-                <h2>Progress</h2>
-                <div class="info-row">
-                    <span>Current Vial:</span>
-                    <span id="current-vial">0</span> / <span id="total-vials">16</span>
-                </div>
-                <div class="info-row">
-                    <span>Current State:</span>
-                    <span id="current-state">idle</span>
+                <div class="progress-info">
+                    <div class="info-row">
+                        <span>Current Vial:</span>
+                        <span><span id="current-vial">0</span> / <span id="total-vials">16</span></span>
+                    </div>
+                    <div class="info-row">
+                        <span>State:</span>
+                        <span id="current-state">idle</span>
+                    </div>
                 </div>
             </section>
 

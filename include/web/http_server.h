@@ -24,6 +24,7 @@ struct ServerConfig {
     std::string listen_address{"0.0.0.0"};
     std::uint16_t port{8080};
     std::string static_dir{"frontend"};
+    std::string stream_url;
 };
 
 class HttpServer {
