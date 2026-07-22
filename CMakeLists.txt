@@ -180,6 +180,11 @@ install(FILES ${CMAKE_SOURCE_DIR}/3rdparty/FMC_Controler/lib/libFMC4030_2009_1.s
     COMPONENT backend
 )
 
+install(FILES ${CMAKE_SOURCE_DIR}/dbus/org.ccme.conf
+    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/dbus-1/system.d
+    COMPONENT backend
+)
+
 # ── frontend component ────────────────────────
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/frontend/
     DESTINATION ${CCME_INSTALL_FRONTEND_DIR}
