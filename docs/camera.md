@@ -4,7 +4,10 @@
 
 ## 连接方式
 
-后台已经通过GStreamer将视频流推送到开发板的7777端口,可通过opencv直接连接
+后台已经通过GStreamer将H.264视频流推送到开发板的7777端口
+
+接收端使用GStreamer pipeline连接：
+`tcpclientsrc host=127.0.0.1 port=7777 ! h264parse ! avdec_h264 ! videoconvert ! appsink`
 
 ## 判断溶解完全的方式
 
