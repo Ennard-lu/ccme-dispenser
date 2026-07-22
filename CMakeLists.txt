@@ -38,7 +38,7 @@ set(CCME_STIRRER_BAUD_RATE 9600 CACHE STRING "Serial port baud rate")
 set(CCME_STIRRER_HEAT_TEMP 50.0 CACHE STRING "Default heating temperature (°C)")
 
 # Camera options
-set(CCME_CAMERA_STREAM_URL "tcp://127.0.0.1:2778" CACHE STRING "GStreamer video stream URL")
+set(CCME_CAMERA_STREAM_URL "tcp://127.0.0.1:7777" CACHE STRING "GStreamer video stream URL")
 set(CCME_CAMERA_CHECK_INTERVAL_MS 1000 CACHE STRING "Dissolution check interval (ms)")
 
 # FMC options
@@ -150,9 +150,9 @@ add_subdirectory(src/orchestrator)
 
 include(GNUInstallDirs)
 
-set(CCME_INSTALL_FRONTEND_DIR "share/ccme-dispenser/frontend" CACHE STRING
+set(CCME_INSTALL_FRONTEND_DIR "/var/www/ccme" CACHE STRING
     "Frontend install directory (relative to install prefix)")
-set(CCME_INSTALL_NGINX_DIR "${CMAKE_INSTALL_SYSCONFDIR}/nginx/sites-available" CACHE STRING
+set(CCME_INSTALL_NGINX_DIR "/nginx/sites-available" CACHE STRING
     "nginx config install directory (relative to install prefix)")
 set(CCME_INSTALL_LIB_DIR "lib/ccme-dispenser" CACHE STRING
     "SDK library install directory (relative to install prefix)")
