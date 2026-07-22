@@ -11,8 +11,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include(FetchContent)
-
 # Compiler flags
 add_compile_options(-Wall -Wextra -Wpedantic)
 
@@ -53,37 +51,25 @@ set(CCME_VIAL_ORIGIN_X 0.0 CACHE STRING "X coordinate of first vial (mm)")
 set(CCME_VIAL_ORIGIN_Y 0.0 CACHE STRING "Y coordinate of first vial (mm)")
 
 # ──────────────────────────────────────────────
-# Third-party dependencies (FetchContent)
+# Third-party dependencies (git submodules)
 # ──────────────────────────────────────────────
 
 # sdbus-c++
-FetchContent_Declare(
-    sdbus-cpp
-    GIT_REPOSITORY https://github.com/Kistler-Group/sdbus-cpp.git
-    GIT_TAG        v2.3.1
-)
 set(SDBUS_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SDBUS_CPP_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(SDBUS_CPP_INSTALL OFF CACHE BOOL "" FORCE)
 set(SDBUS_CPP_BUILD_LIBSYSTEMD OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(sdbus-cpp)
+add_subdirectory(3rdparty/sdbus-cpp)
 
 # nlohmann/json
-FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG        v3.11.3
-)
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(nlohmann_json)
+set(JSON_Install OFF CACHE BOOL "" FORCE)
+add_subdirectory(3rdparty/json)
 
 # cpp-httplib (header-only HTTP server)
-FetchContent_Declare(
-    httplib
-    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG        v0.15.3
-)
-FetchContent_MakeAvailable(httplib)
+set(HTTPLIB_TEST OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+add_subdirectory(3rdparty/cpp-httplib)
 
 find_package(Threads REQUIRED)
 

@@ -1,0 +1,9 @@
+[submodule "3rdparty/sdbus-cpp"]
+	path = 3rdparty/sdbus-cpp
+	url = https://github.com/Kistler-Group/sdbus-cpp.git
+[submodule "3rdparty/json"]
+	path = 3rdparty/json
+	url = https://github.com/nlohmann/json.git
+[submodule "3rdparty/cpp-httplib"]
+	path = 3rdparty/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib.git
