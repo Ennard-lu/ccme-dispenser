@@ -133,7 +133,7 @@ struct Workflow::Impl {
                 return;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(
-                static_cast<int>(volume_ml / CCME_PUMP_FLOW_RATE * 1000) + 500));
+                static_cast<int>(volume_ml / CCME_PUMP0_FLOW_RATE * 1000) + 500));
 
             state = WorkflowState::kStirring;
             if (!dbus.StirrerStart(kStirSpeedRpm)) {
@@ -165,7 +165,7 @@ struct Workflow::Impl {
                 return;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(
-                static_cast<int>(volume_ml / CCME_PUMP_FLOW_RATE * 1000) + 500));
+                static_cast<int>(volume_ml / CCME_PUMP0_FLOW_RATE * 1000) + 500));
 
             current_vial++;
         }

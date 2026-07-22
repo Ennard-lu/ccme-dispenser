@@ -9,29 +9,9 @@ namespace ccme::pump {
 
 namespace {
 
-const char* PwmChipPath(PumpId id) {
-    return (id == PumpId::kPump1) ? CCME_PUMP0_PWM_PATH
-                                  : CCME_PUMP1_PWM_PATH;
-}
-
-int PwmChannel(PumpId id) {
-    return (id == PumpId::kPump1) ? CCME_PUMP0_PWM_CHANNEL
-                                  : CCME_PUMP1_PWM_CHANNEL;
-}
-
-std::string PwmDir(PumpId id) {
-    int ch = PwmChannel(id);
-    return std::string(PwmChipPath(id)) + "/pwm" + std::to_string(ch);
-}
-
 void WriteFile(const std::string& path, const std::string& value) {
     std::ofstream ofs(path);
     ofs << value;
-}
-
-void ExportPwmChip(PumpId id) {
-    WriteFile(std::string(PwmChipPath(id)) + "/export",
-              std::to_string(PwmChannel(id)));
 }
 
 void ExportGpio(int pin) {
@@ -54,26 +34,40 @@ struct PumpController::Impl {
     int pwm_channel;
     int gpio_dir_pin;
     double flow_rate;
+    int pwm_period_us;
     std::chrono::steady_clock::time_point start_time;
     std::thread timer_thread;
 
     Impl(PumpId pump_id)
-        : id(pump_id),
-          pwm_channel(static_cast<int>(pump_id)),
-          gpio_dir_pin(CCME_PUMP_GPIO_DIR_PIN),
-          flow_rate(CCME_PUMP_FLOW_RATE) {
-        pwm_path = PwmDir(id);
+        : id(pump_id) {
+        if (id == PumpId::kPump1) {
+            pwm_path = std::string(CCME_PUMP0_PWM_PATH) + "/pwm"
+                       + std::to_string(CCME_PUMP0_PWM_CHANNEL);
+            pwm_channel = CCME_PUMP0_PWM_CHANNEL;
+            gpio_dir_pin = CCME_PUMP0_GPIO_DIR_PIN;
+            flow_rate = CCME_PUMP0_FLOW_RATE;
+            pwm_period_us = CCME_PUMP0_PWM_PERIOD_US;
+        } else {
+            pwm_path = std::string(CCME_PUMP1_PWM_PATH) + "/pwm"
+                       + std::to_string(CCME_PUMP1_PWM_CHANNEL);
+            pwm_channel = CCME_PUMP1_PWM_CHANNEL;
+            gpio_dir_pin = CCME_PUMP1_GPIO_DIR_PIN;
+            flow_rate = CCME_PUMP1_FLOW_RATE;
+            pwm_period_us = CCME_PUMP1_PWM_PERIOD_US;
+        }
     }
 
     void ExportPins() {
-        ExportPwmChip(id);
+        const char* chip = (id == PumpId::kPump1) ? CCME_PUMP0_PWM_PATH
+                                                   : CCME_PUMP1_PWM_PATH;
+        WriteFile(std::string(chip) + "/export", std::to_string(pwm_channel));
         ExportGpio(gpio_dir_pin);
     }
 
     void StartPwm() {
-        WriteFile(pwm_path + "/period", std::to_string(CCME_PUMP_PWM_PERIOD_US));
+        WriteFile(pwm_path + "/period", std::to_string(pwm_period_us));
         WriteFile(pwm_path + "/duty_cycle",
-                  std::to_string(CCME_PUMP_PWM_PERIOD_US / 2));
+                  std::to_string(pwm_period_us / 2));
         WriteFile(pwm_path + "/enable", "1");
     }
 

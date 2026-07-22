@@ -18,14 +18,19 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 # Configurable options
 # ──────────────────────────────────────────────
 
-# Pump options
+# Pump 0 options
 set(CCME_PUMP0_PWM_PATH "/sys/class/pwm/pwmchip0" CACHE STRING "Pump 0 PWM device path")
 set(CCME_PUMP0_PWM_CHANNEL 0 CACHE STRING "Pump 0 PWM channel index")
+set(CCME_PUMP0_GPIO_DIR_PIN 18 CACHE STRING "Pump 0 GPIO direction pin")
+set(CCME_PUMP0_FLOW_RATE 1.0 CACHE STRING "Pump 0 flow rate (ml/s)")
+set(CCME_PUMP0_PWM_PERIOD_US 20000 CACHE STRING "Pump 0 PWM period (us)")
+
+# Pump 1 options
 set(CCME_PUMP1_PWM_PATH "/sys/class/pwm/pwmchip2" CACHE STRING "Pump 1 PWM device path")
 set(CCME_PUMP1_PWM_CHANNEL 0 CACHE STRING "Pump 1 PWM channel index")
-set(CCME_PUMP_GPIO_DIR_PIN 18 CACHE STRING "GPIO direction pin number")
-set(CCME_PUMP_FLOW_RATE 1.0 CACHE STRING "Peristaltic pump flow rate (ml/s)")
-set(CCME_PUMP_PWM_PERIOD_US 20000 CACHE STRING "PWM period in microseconds")
+set(CCME_PUMP1_GPIO_DIR_PIN 19 CACHE STRING "Pump 1 GPIO direction pin")
+set(CCME_PUMP1_FLOW_RATE 1.0 CACHE STRING "Pump 1 flow rate (ml/s)")
+set(CCME_PUMP1_PWM_PERIOD_US 20000 CACHE STRING "Pump 1 PWM period (us)")
 
 # Stirrer options
 set(CCME_STIRRER_SERIAL_PORT "/dev/ttyS1" CACHE STRING "Serial port device path")
@@ -92,11 +97,14 @@ set_target_properties(fmc4030_sdk PROPERTIES
 add_compile_definitions(
     CCME_PUMP0_PWM_PATH="${CCME_PUMP0_PWM_PATH}"
     CCME_PUMP0_PWM_CHANNEL=${CCME_PUMP0_PWM_CHANNEL}
+    CCME_PUMP0_GPIO_DIR_PIN=${CCME_PUMP0_GPIO_DIR_PIN}
+    CCME_PUMP0_FLOW_RATE=${CCME_PUMP0_FLOW_RATE}
+    CCME_PUMP0_PWM_PERIOD_US=${CCME_PUMP0_PWM_PERIOD_US}
     CCME_PUMP1_PWM_PATH="${CCME_PUMP1_PWM_PATH}"
     CCME_PUMP1_PWM_CHANNEL=${CCME_PUMP1_PWM_CHANNEL}
-    CCME_PUMP_GPIO_DIR_PIN=${CCME_PUMP_GPIO_DIR_PIN}
-    CCME_PUMP_FLOW_RATE=${CCME_PUMP_FLOW_RATE}
-    CCME_PUMP_PWM_PERIOD_US=${CCME_PUMP_PWM_PERIOD_US}
+    CCME_PUMP1_GPIO_DIR_PIN=${CCME_PUMP1_GPIO_DIR_PIN}
+    CCME_PUMP1_FLOW_RATE=${CCME_PUMP1_FLOW_RATE}
+    CCME_PUMP1_PWM_PERIOD_US=${CCME_PUMP1_PWM_PERIOD_US}
 
     CCME_STIRRER_SERIAL_PORT="${CCME_STIRRER_SERIAL_PORT}"
     CCME_STIRRER_BAUD_RATE=${CCME_STIRRER_BAUD_RATE}
