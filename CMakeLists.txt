@@ -19,26 +19,26 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 # ──────────────────────────────────────────────
 
 # Pump 0 options
-set(CCME_PUMP0_PWM_PATH "/sys/class/pwm/pwmchip0" CACHE STRING "Pump 0 PWM device path")
+set(CCME_PUMP0_PWM_PATH "/sys/class/pwm/pwmchip5" CACHE STRING "Pump 0 PWM device path")
 set(CCME_PUMP0_PWM_CHANNEL 0 CACHE STRING "Pump 0 PWM channel index")
-set(CCME_PUMP0_GPIO_DIR_PIN 18 CACHE STRING "Pump 0 GPIO direction pin")
+set(CCME_PUMP0_GPIO_DIR_PIN 131 CACHE STRING "Pump 0 GPIO direction pin")
 set(CCME_PUMP0_FLOW_RATE 1.0 CACHE STRING "Pump 0 flow rate (ml/s)")
 set(CCME_PUMP0_PWM_PERIOD_US 20000 CACHE STRING "Pump 0 PWM period (us)")
 
 # Pump 1 options
-set(CCME_PUMP1_PWM_PATH "/sys/class/pwm/pwmchip2" CACHE STRING "Pump 1 PWM device path")
+set(CCME_PUMP1_PWM_PATH "/sys/class/pwm/pwmchip6" CACHE STRING "Pump 1 PWM device path")
 set(CCME_PUMP1_PWM_CHANNEL 0 CACHE STRING "Pump 1 PWM channel index")
-set(CCME_PUMP1_GPIO_DIR_PIN 19 CACHE STRING "Pump 1 GPIO direction pin")
+set(CCME_PUMP1_GPIO_DIR_PIN 134 CACHE STRING "Pump 1 GPIO direction pin")
 set(CCME_PUMP1_FLOW_RATE 1.0 CACHE STRING "Pump 1 flow rate (ml/s)")
 set(CCME_PUMP1_PWM_PERIOD_US 20000 CACHE STRING "Pump 1 PWM period (us)")
 
 # Stirrer options
-set(CCME_STIRRER_SERIAL_PORT "/dev/ttyS1" CACHE STRING "Serial port device path")
+set(CCME_STIRRER_SERIAL_PORT "/dev/ttyACM0" CACHE STRING "Serial port device path")
 set(CCME_STIRRER_BAUD_RATE 9600 CACHE STRING "Serial port baud rate")
 set(CCME_STIRRER_HEAT_TEMP 50.0 CACHE STRING "Default heating temperature (°C)")
 
 # Camera options
-set(CCME_CAMERA_STREAM_URL "tcp://127.0.0.1:7777" CACHE STRING "GStreamer video pipeline")
+set(CCME_CAMERA_STREAM_URL "tcp://127.0.0.1:7778" CACHE STRING "GStreamer video pipeline")
 set(CCME_CAMERA_CHECK_INTERVAL_MS 1000 CACHE STRING "Dissolution check interval (ms)")
 
 # FMC options

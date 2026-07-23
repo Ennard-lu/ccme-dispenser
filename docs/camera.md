@@ -4,20 +4,46 @@
 
 ## 连接方式
 
-通过GStreamer将视频流推送到开发板的7777端口
+GStreamer 通过 `tee` 输出两路 H.264 流：MPEG-TS 供浏览器播放，raw H.264 供溶解检测。
 
-### GStreamer 推流命令（需要 mpegtsmux）
+### 推流脚本
 
 ```bash
-gst-launch-1.0 v4l2src device=/dev/video-camera0 io-mode=4 do-timestamp=false ! \
-    video/x-raw,width=1200,height=1200,format=NV12,framerate=30/1 ! \
-    mpph264enc gop=15 rc-mode=1 bps=4000000 max-pending=2 qp-init=20 ! \
-    h264parse config-interval=-1 ! \
-    mpegtsmux ! \
-    tcpserversink host=127.0.0.1 port=7777 sync=false
+./scripts/gstreamer-stream.sh
 ```
 
-**注意**: 必须添加 `mpegtsmux` 元素，否则浏览器 MSE 无法解析 H.264 裸流。
+或手动指定设备：
+
+```bash
+./scripts/gstreamer-stream.sh /dev/video0
+```
+
+也可通过环境变量自定义参数：
+
+```bash
+CCME_BITRATE=6000000 CCME_MPEGTS_PORT=7777 CCME_H264_PORT=7778 ./scripts/gstreamer-stream.sh
+```
+
+### 手动推流命令
+
+```bash
+gst-launch-1.0 v4l2src device=/dev/video-camera0 io-mode=4 do-timestamp=false \
+    min-buffers=1 min-leftover=0 ! \
+    video/x-raw,width=1200,height=1200,format=NV12,framerate=30/1 ! \
+    mpph264enc gop=15 rc-mode=1 bps=4000000 max-pending=1 qp-init=20 ! \
+    tee name=t \
+    t. ! queue leaky=downstream max-size-buffers=1 max-size-time=0 ! \
+       h264parse config-interval=-1 ! mpegtsmux latency=0 ! \
+       tcpserversink host=127.0.0.1 port=7777 sync=false async=false \
+    t. ! queue leaky=downstream max-size-buffers=1 max-size-time=0 ! \
+       h264parse config-interval=-1 ! \
+       tcpserversink host=127.0.0.1 port=7778 sync=false async=false
+```
+
+- **Port 7777**: MPEG-TS → `ccme-web` HTTP 代理 → 浏览器 mpegts.js MSE（延迟 ~0.5-1s）
+- **Port 7778**: Raw H.264 → `ccme-camera` 溶解检测
+
+同一个 H.264 源，只编码一次，两路共享。
 
 ## 前端显示方式
 
