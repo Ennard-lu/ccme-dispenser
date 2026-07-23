@@ -23,14 +23,14 @@ set(CCME_PUMP0_PWM_PATH "/sys/class/pwm/pwmchip5" CACHE STRING "Pump 0 PWM devic
 set(CCME_PUMP0_PWM_CHANNEL 0 CACHE STRING "Pump 0 PWM channel index")
 set(CCME_PUMP0_GPIO_DIR_PIN 131 CACHE STRING "Pump 0 GPIO direction pin")
 set(CCME_PUMP0_FLOW_RATE 1.0 CACHE STRING "Pump 0 flow rate (ml/s)")
-set(CCME_PUMP0_PWM_PERIOD_US 20000 CACHE STRING "Pump 0 PWM period (us)")
+set(CCME_PUMP0_PWM_PERIOD_US 60000 CACHE STRING "Pump 0 PWM period (ns)")
 
 # Pump 1 options
-set(CCME_PUMP1_PWM_PATH "/sys/class/pwm/pwmchip6" CACHE STRING "Pump 1 PWM device path")
+set(CCME_PUMP1_PWM_PATH "/sys/class/pwm/pwmchip3" CACHE STRING "Pump 1 PWM device path")
 set(CCME_PUMP1_PWM_CHANNEL 0 CACHE STRING "Pump 1 PWM channel index")
 set(CCME_PUMP1_GPIO_DIR_PIN 134 CACHE STRING "Pump 1 GPIO direction pin")
 set(CCME_PUMP1_FLOW_RATE 1.0 CACHE STRING "Pump 1 flow rate (ml/s)")
-set(CCME_PUMP1_PWM_PERIOD_US 20000 CACHE STRING "Pump 1 PWM period (us)")
+set(CCME_PUMP1_PWM_PERIOD_US 60000 CACHE STRING "Pump 1 PWM period (ns)")
 
 # Stirrer options
 set(CCME_STIRRER_SERIAL_PORT "/dev/ttyACM0" CACHE STRING "Serial port device path")

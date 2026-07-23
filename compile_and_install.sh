@@ -5,4 +5,4 @@ cmake --install build --prefix "$HOME/.local" --component backend
 sudo cmake --install build --component frontend
 ndir=`pwd`
 cd $HOME/.local/bin
-sudo chown root ccme-pump ccme-stirrer gstreamer-stream.sh start_ip.sh
+sudo chown root ccme-pump ccme-stirrer gstreamer-stream.sh start-ip.sh

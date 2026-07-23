@@ -26,7 +26,7 @@ declare -A SVC_PRI=(
     [orchestrator]="sh -c"
 )
 
-sudo ${BIN_DIR}/start-ip.sh
+sudo ${BIN_DIR}/start-ip.sh || echo "ip already set"
 nohup sudo ${BIN_DIR}/gstreamer-stream.sh > "${LOG_DIR}/gstreamer.log" 2>&1 &
 
 for svc in pump stirrer camera fmc web orchestrator; do
