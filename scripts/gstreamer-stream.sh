@@ -25,7 +25,7 @@ set -euo pipefail
 DEVICE="${1:-${CCME_DEVICE:-/dev/video-camera0}}"
 WIDTH="${CCME_WIDTH:-1200}"
 HEIGHT="${CCME_HEIGHT:-1200}"
-FPS="${CCME_FPS:-30}"
+FPS="${CCME_FPS:-10}"
 BITRATE="${CCME_BITRATE:-4000000}"
 GOP="${CCME_GOP:-15}"
 MPEGTS_PORT="${CCME_MPEGTS_PORT:-7777}"
@@ -36,8 +36,7 @@ echo "  MPEG-TS → :${MPEGTS_PORT}  (browser)"
 echo "  H.264   → :${H264_PORT}    (camera module)"
 
 exec gst-launch-1.0 \
-    v4l2src device="${DEVICE}" io-mode=4 do-timestamp=false \
-        min-buffers=1 min-leftover=0 ! \
+    v4l2src device="${DEVICE}" io-mode=4 do-timestamp=false ! \
     "video/x-raw,width=${WIDTH},height=${HEIGHT},format=NV12,framerate=${FPS}/1" ! \
     mpph264enc gop="${GOP}" rc-mode=1 bps="${BITRATE}" max-pending=1 qp-init=20 ! \
     tee name=t \

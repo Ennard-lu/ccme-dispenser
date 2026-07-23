@@ -42,7 +42,7 @@ set(CCME_CAMERA_STREAM_URL "tcp://127.0.0.1:7778" CACHE STRING "GStreamer video 
 set(CCME_CAMERA_CHECK_INTERVAL_MS 1000 CACHE STRING "Dissolution check interval (ms)")
 
 # FMC options
-set(CCME_FMC_CONTROLLER_IP "192.168.1.10" CACHE STRING "FMC4030 controller IP address")
+set(CCME_FMC_CONTROLLER_IP "192.168.0.30" CACHE STRING "FMC4030 controller IP address")
 set(CCME_FMC_CONTROLLER_PORT 8088 CACHE STRING "FMC4030 controller port")
 set(CCME_FMC_CARD_ID 0 CACHE STRING "FMC4030 card ID")
 
@@ -166,6 +166,16 @@ install(TARGETS ccme-pump ccme-stirrer ccme-camera ccme-fmc ccme-web ccme-dispen
 install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/start_services.sh
     DESTINATION ${CMAKE_INSTALL_BINDIR}
     RENAME ccme-start
+    COMPONENT backend
+)
+
+install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/gstreamer-stream.sh
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+    COMPONENT backend
+)
+
+install(PROGRAMS ${CMAKE_SOURCE_DIR}/scripts/start-ip.sh
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
     COMPONENT backend
 )
 
