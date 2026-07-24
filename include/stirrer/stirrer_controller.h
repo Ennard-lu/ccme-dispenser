@@ -35,8 +35,10 @@ public:
     std::expected<bool, StirrerError> StopHeat();
     [[nodiscard]] bool IsHeating() const;
     [[nodiscard]] int GetSpeed() const;
+    [[nodiscard]] std::expected<int, StirrerError> GetActualSpeed();
     [[nodiscard]] double GetSetTemp() const;
-    [[nodiscard]] double GetActualTemp() const;
+    [[nodiscard]] std::expected<double, StirrerError> GetActualTemp();
+    [[nodiscard]] std::expected<double, StirrerError> GetExternalTemp();
 
 private:
     struct Impl;

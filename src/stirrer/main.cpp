@@ -56,8 +56,23 @@ int main() {
             sdbus::registerMethod("GetSetTemp").implementedAs([&stirrer]() -> double {
                 return stirrer->GetSetTemp();
             }),
+            sdbus::registerMethod("GetActualSpeed").implementedAs([&stirrer]() -> int {
+                auto result = stirrer->GetActualSpeed();
+                if (!result)
+                    throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to read actual speed"};
+                return *result;
+            }),
             sdbus::registerMethod("GetActualTemp").implementedAs([&stirrer]() -> double {
-                return stirrer->GetActualTemp();
+                auto result = stirrer->GetActualTemp();
+                if (!result)
+                    throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to read actual temperature"};
+                return *result;
+            }),
+            sdbus::registerMethod("GetExternalTemp").implementedAs([&stirrer]() -> double {
+                auto result = stirrer->GetExternalTemp();
+                if (!result)
+                    throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to read external temperature"};
+                return *result;
             })
         ).forInterface(kInterfaceName);
 

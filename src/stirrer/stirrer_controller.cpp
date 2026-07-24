@@ -6,50 +6,15 @@
 #include <cstring>
 #include <thread>
 #include <chrono>
-#include <vector>
+#include <string>
+#include <array>
 
 namespace ccme::stirrer {
 
 namespace {
 
-constexpr uint8_t kModbusFunctionWriteSingle = 0x06;
-constexpr uint8_t kIkaDeviceAddress = 1;
-
-constexpr uint16_t kRegMotorOn = 0x0000;
-constexpr uint16_t kRegSpeedTarget = 0x0001;
-constexpr uint16_t kRegTempTarget = 0x0002;
-constexpr uint16_t kRegHeaterOn = 0x0003;
-
-uint16_t Crc16Modbus(const uint8_t* data, size_t len) {
-    uint16_t crc = 0xFFFF;
-    for (size_t i = 0; i < len; ++i) {
-        crc ^= data[i];
-        for (int j = 0; j < 8; ++j) {
-            if (crc & 1) {
-                crc = (crc >> 1) ^ 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    return crc;
-}
-
-void AppendCrc(std::vector<uint8_t>& frame) {
-    uint16_t crc = Crc16Modbus(frame.data(), frame.size());
-    frame.push_back(crc & 0xFF);
-    frame.push_back((crc >> 8) & 0xFF);
-}
-
-std::vector<uint8_t> BuildWriteRegister(uint16_t reg, uint16_t value) {
-    std::vector<uint8_t> frame = {kIkaDeviceAddress, kModbusFunctionWriteSingle,
-                                  static_cast<uint8_t>(reg >> 8),
-                                  static_cast<uint8_t>(reg & 0xFF),
-                                  static_cast<uint8_t>(value >> 8),
-                                  static_cast<uint8_t>(value & 0xFF)};
-    AppendCrc(frame);
-    return frame;
-}
+constexpr int kReadTimeoutMs = 2000;
+constexpr int kInterCharMs = 50;
 
 }  // namespace
 
@@ -58,7 +23,6 @@ struct StirrerController::Impl {
     bool heating{false};
     int speed_rpm{0};
     double set_temp{0.0};
-    double actual_temp{0.0};
     std::string serial_port;
     int baud_rate;
     int fd{-1};
@@ -74,62 +38,100 @@ struct StirrerController::Impl {
 
         struct termios tty{};
         tcgetattr(fd, &tty);
-        cfsetispeed(&tty, B9600);
-        cfsetospeed(&tty, B9600);
-        tty.c_cflag = (tty.c_cflag & ~static_cast<tcflag_t>(CSIZE)) | CS8;
+        cfsetispeed(&tty, static_cast<speed_t>(baud_rate));
+        cfsetospeed(&tty, static_cast<speed_t>(baud_rate));
+
+        // 7 data bits, even parity, 1 stop bit (7E1)
+        tty.c_cflag = (tty.c_cflag & ~static_cast<tcflag_t>(CSIZE)) | CS7;
+        tty.c_cflag |= PARENB;
+        tty.c_cflag &= ~(CSTOPB | CRTSCTS);
         tty.c_cflag |= CLOCAL | CREAD;
-        tty.c_cflag &= ~(PARENB | CSTOPB | CRTSCTS);
+
         tty.c_iflag &= ~(IXON | IXOFF | IXANY | IGNBRK | BRKINT |
                           PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
         tty.c_oflag &= ~OPOST;
+
         tty.c_cc[VMIN] = 0;
-        tty.c_cc[VTIME] = 10;
+        tty.c_cc[VTIME] = 10;  // 1 second read timeout
+
         tcsetattr(fd, TCSANOW, &tty);
         return true;
     }
 
-    bool SendCommand(const std::vector<uint8_t>& cmd) {
+    // Send a NAMUR text command with terminator: " \r \n"
+    bool SendText(const std::string& cmd) {
         if (fd < 0) return false;
-        if (write(fd, cmd.data(), cmd.size()) !=
-            static_cast<ssize_t>(cmd.size())) {
-            return false;
+        // Terminator per IKA NAMUR protocol: space + CR + space + LF
+        const char terminator[] = " \r \n";
+        std::string frame = cmd + terminator;
+        ssize_t written = write(fd, frame.c_str(), frame.size());
+        return written == static_cast<ssize_t>(frame.size());
+    }
+
+    // Send a text command and read the response line, stripping CR/LF
+    std::expected<std::string, StirrerError> SendRead(const std::string& cmd) {
+        if (fd < 0) return std::unexpected(StirrerError::kSerialOpenFailed);
+
+        if (!SendText(cmd)) {
+            return std::unexpected(StirrerError::kWriteFailed);
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        uint8_t buf[64]{};
-        read(fd, buf, sizeof(buf));
-        return true;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(kInterCharMs));
+
+        // Read response bytes with timeout
+        std::string resp;
+        auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::milliseconds(kReadTimeoutMs);
+        std::array<char, 128> buf{};
+        while (std::chrono::steady_clock::now() < deadline) {
+            ssize_t n = read(fd, buf.data(), buf.size() - 1);
+            if (n > 0) {
+                buf[n] = '\0';
+                resp.append(buf.data(), static_cast<size_t>(n));
+                // If we got a newline, response is likely complete
+                if (resp.find('\n') != std::string::npos) break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        // Strip trailing CR/LF/spaces
+        while (!resp.empty() && (resp.back() == '\r' || resp.back() == '\n' || resp.back() == ' ')) {
+            resp.pop_back();
+        }
+        // Strip leading spaces
+        size_t start = resp.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos) return std::unexpected(StirrerError::kReadFailed);
+        resp = resp.substr(start);
+
+        if (resp.empty()) return std::unexpected(StirrerError::kReadFailed);
+        return resp;
     }
 
-    bool SendStart() {
-        auto cmd = BuildWriteRegister(kRegMotorOn, 0x0001);
-        return SendCommand(cmd);
+    // Parse integer from response
+    std::expected<int, StirrerError> ReadInt(const std::string& cmd) {
+        auto resp = SendRead(cmd);
+        if (!resp) return std::unexpected(resp.error());
+        try {
+            return std::stoi(*resp);
+        } catch (...) {
+            return std::unexpected(StirrerError::kReadFailed);
+        }
     }
 
-    bool SendStop() {
-        auto cmd = BuildWriteRegister(kRegMotorOn, 0x0000);
-        return SendCommand(cmd);
+    // Parse double from response
+    std::expected<double, StirrerError> ReadDouble(const std::string& cmd) {
+        auto resp = SendRead(cmd);
+        if (!resp) return std::unexpected(resp.error());
+        try {
+            return std::stod(*resp);
+        } catch (...) {
+            return std::unexpected(StirrerError::kReadFailed);
+        }
     }
 
-    bool SetSpeed(int rpm) {
-        auto cmd = BuildWriteRegister(kRegSpeedTarget,
-                                      static_cast<uint16_t>(rpm));
-        return SendCommand(cmd);
-    }
-
-    bool SendHeatStart() {
-        auto cmd = BuildWriteRegister(kRegHeaterOn, 0x0001);
-        return SendCommand(cmd);
-    }
-
-    bool SendHeatStop() {
-        auto cmd = BuildWriteRegister(kRegHeaterOn, 0x0000);
-        return SendCommand(cmd);
-    }
-
-    bool SetTemp(double temp_c) {
-        auto cmd = BuildWriteRegister(kRegTempTarget,
-                                      static_cast<uint16_t>(temp_c * 10.0));
-        return SendCommand(cmd);
+    // Send a control command (no response expected)
+    bool SendControl(const std::string& cmd) {
+        return SendText(cmd);
     }
 };
 
@@ -160,11 +162,11 @@ std::expected<bool, StirrerError> StirrerController::StartStir(int speed_rpm) {
         return std::unexpected(StirrerError::kSerialOpenFailed);
     }
 
-    if (!impl_->SetSpeed(speed_rpm)) {
+    if (!impl_->SendControl("OUT_SP_4 " + std::to_string(speed_rpm))) {
         return std::unexpected(StirrerError::kWriteFailed);
     }
 
-    if (!impl_->SendStart()) {
+    if (!impl_->SendControl("START_4")) {
         return std::unexpected(StirrerError::kWriteFailed);
     }
 
@@ -178,7 +180,7 @@ std::expected<bool, StirrerError> StirrerController::StopStir() {
         return std::unexpected(StirrerError::kNotRunning);
     }
 
-    if (!impl_->SendStop()) {
+    if (!impl_->SendControl("STOP_4")) {
         return std::unexpected(StirrerError::kWriteFailed);
     }
 
@@ -200,11 +202,11 @@ std::expected<bool, StirrerError> StirrerController::StartHeat(double temp_c) {
         return std::unexpected(StirrerError::kSerialOpenFailed);
     }
 
-    if (!impl_->SetTemp(temp_c)) {
+    if (!impl_->SendControl("OUT_SP_1 " + std::to_string(static_cast<int>(temp_c)))) {
         return std::unexpected(StirrerError::kWriteFailed);
     }
 
-    if (!impl_->SendHeatStart()) {
+    if (!impl_->SendControl("START_1")) {
         return std::unexpected(StirrerError::kWriteFailed);
     }
 
@@ -218,7 +220,7 @@ std::expected<bool, StirrerError> StirrerController::StopHeat() {
         return std::unexpected(StirrerError::kNotRunning);
     }
 
-    if (!impl_->SendHeatStop()) {
+    if (!impl_->SendControl("STOP_1")) {
         return std::unexpected(StirrerError::kWriteFailed);
     }
 
@@ -234,12 +236,29 @@ int StirrerController::GetSpeed() const {
     return impl_->speed_rpm;
 }
 
+std::expected<int, StirrerError> StirrerController::GetActualSpeed() {
+    if (!impl_->OpenPort()) {
+        return std::unexpected(StirrerError::kSerialOpenFailed);
+    }
+    return impl_->ReadInt("IN_PV_4");
+}
+
 double StirrerController::GetSetTemp() const {
     return impl_->set_temp;
 }
 
-double StirrerController::GetActualTemp() const {
-    return impl_->actual_temp;
+std::expected<double, StirrerError> StirrerController::GetActualTemp() {
+    if (!impl_->OpenPort()) {
+        return std::unexpected(StirrerError::kSerialOpenFailed);
+    }
+    return impl_->ReadDouble("IN_PV_2");
+}
+
+std::expected<double, StirrerError> StirrerController::GetExternalTemp() {
+    if (!impl_->OpenPort()) {
+        return std::unexpected(StirrerError::kSerialOpenFailed);
+    }
+    return impl_->ReadDouble("IN_PV_1");
 }
 
 }  // namespace ccme::stirrer
