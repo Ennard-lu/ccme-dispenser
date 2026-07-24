@@ -21,15 +21,21 @@ int main() {
 
         object->addVTable(
             sdbus::registerMethod("Start").implementedAs([&workflow](double volume_ml) -> bool {
+                std::cerr << "[ORCH] D-Bus: Start(" << volume_ml << ")\n";
                 auto result = workflow->Start(volume_ml);
-                if (!result)
+                if (!result) {
+                    std::cerr << "[ORCH] D-Bus: Start failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Workflow start failed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("Stop").implementedAs([&workflow]() -> bool {
+                std::cerr << "[ORCH] D-Bus: Stop\n";
                 auto result = workflow->Stop();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[ORCH] D-Bus: Stop failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Workflow stop failed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("GetState").implementedAs([&workflow]() -> std::string {

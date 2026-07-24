@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <vector>
+#include <iostream>
 
 #ifdef CCME_HAS_OPENCV
 #include <opencv2/core.hpp>
@@ -73,6 +74,7 @@ struct DissolutionDetector::Impl {
     Impl() {
 #ifdef CCME_HAS_OPENCV
         stream_url = CCME_CAMERA_STREAM_URL;
+        std::cerr << "[CAMERA] Initialized: stream=" << stream_url << "\n";
 #endif
     }
 };
@@ -89,37 +91,46 @@ DissolutionDetector& DissolutionDetector::operator=(DissolutionDetector&&) noexc
 
 std::expected<bool, CameraError> DissolutionDetector::Connect() {
     if (impl_->connected) {
+        std::cerr << "[CAMERA] Already connected\n";
         return true;
     }
 
 #ifdef CCME_HAS_OPENCV
+    std::cerr << "[CAMERA] Connecting to stream: " << impl_->stream_url << "\n";
     if (!impl_->cap.open(impl_->stream_url, cv::CAP_FFMPEG)) {
+        std::cerr << "[CAMERA] Connection failed\n";
         return std::unexpected(CameraError::kConnectionFailed);
     }
     impl_->connected = true;
+    std::cerr << "[CAMERA] Connected\n";
     return true;
 #else
+    std::cerr << "[CAMERA] OpenCV not available, cannot connect\n";
     return std::unexpected(CameraError::kConnectionFailed);
 #endif
 }
 
 void DissolutionDetector::Disconnect() {
     if (impl_->connected) {
+        std::cerr << "[CAMERA] Disconnecting\n";
 #ifdef CCME_HAS_OPENCV
         impl_->cap.release();
 #endif
         impl_->connected = false;
+        std::cerr << "[CAMERA] Disconnected\n";
     }
 }
 
 std::expected<bool, CameraError> DissolutionDetector::CheckDissolution() {
     if (!impl_->connected) {
+        std::cerr << "[CAMERA] CheckDissolution rejected: not connected\n";
         return std::unexpected(CameraError::kConnectionFailed);
     }
 
 #ifdef CCME_HAS_OPENCV
     cv::Mat frame;
     if (!impl_->cap.read(frame) || frame.empty()) {
+        std::cerr << "[CAMERA] Frame capture failed\n";
         return std::unexpected(CameraError::kFrameCaptureFailed);
     }
 
@@ -143,7 +154,12 @@ std::expected<bool, CameraError> DissolutionDetector::CheckDissolution() {
         avg_radius = sum_r / static_cast<float>(circle_count);
     }
 
-    return impl_->model.Predict(avg_radius, circle_count, density);
+    bool dissolved = impl_->model.Predict(avg_radius, circle_count, density);
+    std::cerr << "[CAMERA] Detection: circles=" << circle_count
+              << " avg_r=" << avg_radius
+              << " density=" << density
+              << " dissolved=" << (dissolved ? "yes" : "no") << "\n";
+    return dissolved;
 #else
     return false;
 #endif

@@ -19,25 +19,32 @@ int main() {
 
         auto connect_result = detector->Connect();
         if (!connect_result) {
-            std::cerr << "Warning: failed to connect to camera stream\n";
+            std::cerr << "[CAMERA] Warning: initial connection failed, will retry on D-Bus Connect\n";
         }
 
         auto object = sdbus::createObject(*connection, sdbus::ObjectPath{kObjectPath});
 
         object->addVTable(
             sdbus::registerMethod("CheckDissolution").implementedAs([&detector]() -> bool {
+                std::cerr << "[CAMERA] D-Bus: CheckDissolution\n";
                 auto result = detector->CheckDissolution();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[CAMERA] D-Bus: CheckDissolution failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Dissolution check failed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("Connect").implementedAs([&detector]() -> bool {
+                std::cerr << "[CAMERA] D-Bus: Connect\n";
                 auto result = detector->Connect();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[CAMERA] D-Bus: Connect failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Camera connect failed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("Disconnect").implementedAs([&detector]() {
+                std::cerr << "[CAMERA] D-Bus: Disconnect\n";
                 detector->Disconnect();
             })
         ).forInterface(kInterfaceName);

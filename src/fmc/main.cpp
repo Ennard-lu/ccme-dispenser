@@ -19,34 +19,46 @@ int main() {
 
         auto connect_result = fmc->Connect();
         if (!connect_result) {
-            std::cerr << "Warning: failed to connect to FMC4030 controller\n";
+            std::cerr << "[FMC] Warning: initial connection failed, will retry on D-Bus Connect\n";
         }
 
         auto object = sdbus::createObject(*connection, sdbus::ObjectPath{kObjectPath});
 
         object->addVTable(
             sdbus::registerMethod("Connect").implementedAs([&fmc]() -> bool {
+                std::cerr << "[FMC] D-Bus: Connect\n";
                 auto result = fmc->Connect();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[FMC] D-Bus: Connect failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "FMC connect failed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("Home").implementedAs([&fmc]() -> bool {
+                std::cerr << "[FMC] D-Bus: Home\n";
                 auto result = fmc->Home();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[FMC] D-Bus: Home failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "FMC home failed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("MoveTo").implementedAs([&fmc](double x, double y) -> bool {
+                std::cerr << "[FMC] D-Bus: MoveTo(" << x << ", " << y << ")\n";
                 auto result = fmc->MoveTo(static_cast<float>(x), static_cast<float>(y));
-                if (!result)
+                if (!result) {
+                    std::cerr << "[FMC] D-Bus: MoveTo failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "FMC move failed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("MoveToVial").implementedAs([&fmc](int index) -> bool {
+                std::cerr << "[FMC] D-Bus: MoveToVial(" << index << ")\n";
                 auto result = fmc->MoveToVial(index);
-                if (!result)
+                if (!result) {
+                    std::cerr << "[FMC] D-Bus: MoveToVial failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "FMC move to vial failed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("IsMoving").implementedAs([&fmc]() -> bool {

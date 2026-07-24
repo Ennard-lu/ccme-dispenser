@@ -8,6 +8,7 @@
 #include <chrono>
 #include <string>
 #include <array>
+#include <iostream>
 
 namespace ccme::stirrer {
 
@@ -29,12 +30,18 @@ struct StirrerController::Impl {
 
     Impl()
         : serial_port(CCME_STIRRER_SERIAL_PORT),
-          baud_rate(CCME_STIRRER_BAUD_RATE) {}
+          baud_rate(CCME_STIRRER_BAUD_RATE) {
+        std::cerr << "[STIRRER] Initialized: port=" << serial_port
+                  << " baud=" << baud_rate << "\n";
+    }
 
     bool OpenPort() {
         if (fd >= 0) return true;
         fd = open(serial_port.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
-        if (fd < 0) return false;
+        if (fd < 0) {
+            std::cerr << "[STIRRER] Failed to open serial port: " << serial_port << "\n";
+            return false;
+        }
 
         struct termios tty{};
         tcgetattr(fd, &tty);
@@ -55,6 +62,7 @@ struct StirrerController::Impl {
         tty.c_cc[VTIME] = 10;  // 1 second read timeout
 
         tcsetattr(fd, TCSANOW, &tty);
+        std::cerr << "[STIRRER] Serial port opened: " << serial_port << "\n";
         return true;
     }
 
@@ -65,7 +73,11 @@ struct StirrerController::Impl {
         const char terminator[] = " \r \n";
         std::string frame = cmd + terminator;
         ssize_t written = write(fd, frame.c_str(), frame.size());
-        return written == static_cast<ssize_t>(frame.size());
+        bool ok = (written == static_cast<ssize_t>(frame.size()));
+        if (!ok) {
+            std::cerr << "[STIRRER] Failed to write command: " << cmd << "\n";
+        }
+        return ok;
     }
 
     // Send a text command and read the response line, stripping CR/LF
@@ -100,10 +112,17 @@ struct StirrerController::Impl {
         }
         // Strip leading spaces
         size_t start = resp.find_first_not_of(" \t\r\n");
-        if (start == std::string::npos) return std::unexpected(StirrerError::kReadFailed);
+        if (start == std::string::npos) {
+            std::cerr << "[STIRRER] Empty response for command: " << cmd << "\n";
+            return std::unexpected(StirrerError::kReadFailed);
+        }
         resp = resp.substr(start);
 
-        if (resp.empty()) return std::unexpected(StirrerError::kReadFailed);
+        if (resp.empty()) {
+            std::cerr << "[STIRRER] Empty response for command: " << cmd << "\n";
+            return std::unexpected(StirrerError::kReadFailed);
+        }
+        std::cerr << "[STIRRER] " << cmd << " -> " << resp << "\n";
         return resp;
     }
 
@@ -114,6 +133,7 @@ struct StirrerController::Impl {
         try {
             return std::stoi(*resp);
         } catch (...) {
+            std::cerr << "[STIRRER] Failed to parse int from: " << *resp << "\n";
             return std::unexpected(StirrerError::kReadFailed);
         }
     }
@@ -125,12 +145,14 @@ struct StirrerController::Impl {
         try {
             return std::stod(*resp);
         } catch (...) {
+            std::cerr << "[STIRRER] Failed to parse double from: " << *resp << "\n";
             return std::unexpected(StirrerError::kReadFailed);
         }
     }
 
     // Send a control command (no response expected)
     bool SendControl(const std::string& cmd) {
+        std::cerr << "[STIRRER] Sending: " << cmd << "\n";
         return SendText(cmd);
     }
 };
@@ -147,6 +169,7 @@ StirrerController::~StirrerController() {
     }
     if (impl_ && impl_->fd >= 0) {
         close(impl_->fd);
+        std::cerr << "[STIRRER] Serial port closed\n";
     }
 }
 
@@ -155,12 +178,15 @@ StirrerController& StirrerController::operator=(StirrerController&&) noexcept = 
 
 std::expected<bool, StirrerError> StirrerController::StartStir(int speed_rpm) {
     if (impl_->stirring) {
+        std::cerr << "[STIRRER] StartStir rejected: already stirring\n";
         return std::unexpected(StirrerError::kAlreadyRunning);
     }
 
     if (!impl_->OpenPort()) {
         return std::unexpected(StirrerError::kSerialOpenFailed);
     }
+
+    std::cerr << "[STIRRER] Starting stir at " << speed_rpm << " rpm\n";
 
     if (!impl_->SendControl("OUT_SP_4 " + std::to_string(speed_rpm))) {
         return std::unexpected(StirrerError::kWriteFailed);
@@ -172,13 +198,17 @@ std::expected<bool, StirrerError> StirrerController::StartStir(int speed_rpm) {
 
     impl_->stirring = true;
     impl_->speed_rpm = speed_rpm;
+    std::cerr << "[STIRRER] Stir started\n";
     return true;
 }
 
 std::expected<bool, StirrerError> StirrerController::StopStir() {
     if (!impl_->stirring) {
+        std::cerr << "[STIRRER] StopStir rejected: not stirring\n";
         return std::unexpected(StirrerError::kNotRunning);
     }
+
+    std::cerr << "[STIRRER] Stopping stir\n";
 
     if (!impl_->SendControl("STOP_4")) {
         return std::unexpected(StirrerError::kWriteFailed);
@@ -186,6 +216,7 @@ std::expected<bool, StirrerError> StirrerController::StopStir() {
 
     impl_->stirring = false;
     impl_->speed_rpm = 0;
+    std::cerr << "[STIRRER] Stir stopped\n";
     return true;
 }
 
@@ -195,12 +226,15 @@ bool StirrerController::IsStirring() const {
 
 std::expected<bool, StirrerError> StirrerController::StartHeat(double temp_c) {
     if (impl_->heating) {
+        std::cerr << "[STIRRER] StartHeat rejected: already heating\n";
         return std::unexpected(StirrerError::kAlreadyRunning);
     }
 
     if (!impl_->OpenPort()) {
         return std::unexpected(StirrerError::kSerialOpenFailed);
     }
+
+    std::cerr << "[STIRRER] Starting heat at " << temp_c << " C\n";
 
     if (!impl_->SendControl("OUT_SP_1 " + std::to_string(static_cast<int>(temp_c)))) {
         return std::unexpected(StirrerError::kWriteFailed);
@@ -212,19 +246,24 @@ std::expected<bool, StirrerError> StirrerController::StartHeat(double temp_c) {
 
     impl_->heating = true;
     impl_->set_temp = temp_c;
+    std::cerr << "[STIRRER] Heating started\n";
     return true;
 }
 
 std::expected<bool, StirrerError> StirrerController::StopHeat() {
     if (!impl_->heating) {
+        std::cerr << "[STIRRER] StopHeat rejected: not heating\n";
         return std::unexpected(StirrerError::kNotRunning);
     }
+
+    std::cerr << "[STIRRER] Stopping heat\n";
 
     if (!impl_->SendControl("STOP_1")) {
         return std::unexpected(StirrerError::kWriteFailed);
     }
 
     impl_->heating = false;
+    std::cerr << "[STIRRER] Heating stopped\n";
     return true;
 }
 

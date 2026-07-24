@@ -66,6 +66,7 @@ std::expected<bool, WebError> HttpServer::Start() {
 
     impl_->svr->Get("/api/status", [this](const httplib::Request&,
                                            httplib::Response& res) {
+        std::cerr << "[WEB] GET /api/status\n";
         nlohmann::json j;
         if (impl_->status_cb) {
             try {
@@ -85,27 +86,34 @@ std::expected<bool, WebError> HttpServer::Start() {
         try {
             auto body = nlohmann::json::parse(req.body);
             double volume = body.value("volume_ml", 0.0);
+            std::cerr << "[WEB] POST /api/start volume=" << volume << "ml\n";
             if (impl_->start_cb && impl_->start_cb(volume)) {
                 j["success"] = true;
+                std::cerr << "[WEB] Start ok\n";
             } else {
                 j["success"] = false;
                 j["error"] = "start failed";
+                std::cerr << "[WEB] Start failed\n";
             }
         } catch (const std::exception& e) {
             j["success"] = false;
             j["error"] = e.what();
+            std::cerr << "[WEB] Start parse error: " << e.what() << "\n";
         }
         res.set_content(j.dump(), "application/json");
     });
 
     impl_->svr->Post("/api/stop", [this](const httplib::Request&,
                                           httplib::Response& res) {
+        std::cerr << "[WEB] POST /api/stop\n";
         nlohmann::json j;
         if (impl_->stop_cb && impl_->stop_cb()) {
             j["success"] = true;
+            std::cerr << "[WEB] Stop ok\n";
         } else {
             j["success"] = false;
             j["error"] = "stop failed";
+            std::cerr << "[WEB] Stop failed\n";
         }
         res.set_content(j.dump(), "application/json");
     });
@@ -116,9 +124,11 @@ std::expected<bool, WebError> HttpServer::Start() {
         auto stream_url = impl_->config.stream_url;
         impl_->svr->Get("/api/stream", [stream_url](const httplib::Request&,
                                                      httplib::Response& res) {
+            std::cerr << "[WEB] GET /api/stream (MJPEG)\n";
             auto cap = std::make_shared<cv::VideoCapture>(
                 stream_url, cv::CAP_FFMPEG);
             if (!cap->isOpened()) {
+                std::cerr << "[WEB] MJPEG stream open failed\n";
                 res.status = 503;
                 res.set_content("Camera stream not available", "text/plain");
                 return;
@@ -163,11 +173,15 @@ std::expected<bool, WebError> HttpServer::Start() {
 
         impl_->svr->Get("/api/hls/stream", [port](const httplib::Request&,
                                                    httplib::Response& res) {
+            std::cerr << "[WEB] GET /api/hls/stream (MPEG-TS port=" << port << ")\n";
             res.set_chunked_content_provider(
                 "video/mp2t",
                 [port](size_t, httplib::DataSink& sink) -> bool {
                     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-                    if (fd < 0) return false;
+                    if (fd < 0) {
+                        std::cerr << "[WEB] MPEG-TS socket create failed\n";
+                        return false;
+                    }
 
                     struct sockaddr_in addr{};
                     addr.sin_family = AF_INET;
@@ -176,10 +190,12 @@ std::expected<bool, WebError> HttpServer::Start() {
 
                     if (::connect(fd, reinterpret_cast<struct sockaddr*>(&addr),
                                   sizeof(addr)) < 0) {
+                        std::cerr << "[WEB] MPEG-TS connect failed\n";
                         ::close(fd);
                         return false;
                     }
 
+                    std::cerr << "[WEB] MPEG-TS proxy connected\n";
                     char buf[4096];
                     bool ok = true;
                     while (ok && sink.is_writable()) {
@@ -191,6 +207,7 @@ std::expected<bool, WebError> HttpServer::Start() {
                         }
                     }
                     ::close(fd);
+                    std::cerr << "[WEB] MPEG-TS proxy disconnected\n";
                     return true;
                 });
         });
@@ -212,6 +229,8 @@ std::expected<bool, WebError> HttpServer::Stop() {
         return std::unexpected(WebError::kNotRunning);
     }
 
+    std::cerr << "[WEB] Stopping HTTP server\n";
+
     if (impl_->svr) {
         impl_->svr->stop();
     }
@@ -220,6 +239,7 @@ std::expected<bool, WebError> HttpServer::Stop() {
     }
 
     impl_->running = false;
+    std::cerr << "[WEB] HTTP server stopped\n";
     return true;
 }
 

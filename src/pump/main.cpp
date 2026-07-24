@@ -24,30 +24,42 @@ int main() {
 
         object->addVTable(
             sdbus::registerMethod("Start").implementedAs([&pump1](double volume_ml) -> bool {
+                std::cerr << "[PUMP1] D-Bus: Start(" << volume_ml << ")\n";
                 auto result = pump1->Start(volume_ml);
-                if (!result)
+                if (!result) {
+                    std::cerr << "[PUMP1] D-Bus: Start failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to start pump"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("Stop").implementedAs([&pump1]() -> bool {
+                std::cerr << "[PUMP1] D-Bus: Stop\n";
                 auto result = pump1->Stop();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[PUMP1] D-Bus: Stop failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to stop pump"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("IsRunning").implementedAs([&pump1]() -> bool {
                 return pump1->IsRunning();
             }),
             sdbus::registerMethod("Start2").implementedAs([&pump2](double volume_ml) -> bool {
+                std::cerr << "[PUMP2] D-Bus: Start(" << volume_ml << ")\n";
                 auto result = pump2->Start(volume_ml);
-                if (!result)
+                if (!result) {
+                    std::cerr << "[PUMP2] D-Bus: Start failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to start pump 2"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("Stop2").implementedAs([&pump2]() -> bool {
+                std::cerr << "[PUMP2] D-Bus: Stop\n";
                 auto result = pump2->Stop();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[PUMP2] D-Bus: Stop failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to stop pump 2"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("IsRunning2").implementedAs([&pump2]() -> bool {

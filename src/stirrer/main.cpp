@@ -21,30 +21,42 @@ int main() {
 
         object->addVTable(
             sdbus::registerMethod("StartStir").implementedAs([&stirrer](int speed) -> bool {
+                std::cerr << "[STIRRER] D-Bus: StartStir(" << speed << ")\n";
                 auto result = stirrer->StartStir(speed);
-                if (!result)
+                if (!result) {
+                    std::cerr << "[STIRRER] D-Bus: StartStir failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to start stirrer"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("StopStir").implementedAs([&stirrer]() -> bool {
+                std::cerr << "[STIRRER] D-Bus: StopStir\n";
                 auto result = stirrer->StopStir();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[STIRRER] D-Bus: StopStir failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to stop stirrer"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("IsStirring").implementedAs([&stirrer]() -> bool {
                 return stirrer->IsStirring();
             }),
             sdbus::registerMethod("StartHeat").implementedAs([&stirrer](double temp_c) -> bool {
+                std::cerr << "[STIRRER] D-Bus: StartHeat(" << temp_c << ")\n";
                 auto result = stirrer->StartHeat(temp_c);
-                if (!result)
+                if (!result) {
+                    std::cerr << "[STIRRER] D-Bus: StartHeat failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to start heating"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("StopHeat").implementedAs([&stirrer]() -> bool {
+                std::cerr << "[STIRRER] D-Bus: StopHeat\n";
                 auto result = stirrer->StopHeat();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[STIRRER] D-Bus: StopHeat failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to stop heating"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("IsHeating").implementedAs([&stirrer]() -> bool {
@@ -57,21 +69,30 @@ int main() {
                 return stirrer->GetSetTemp();
             }),
             sdbus::registerMethod("GetActualSpeed").implementedAs([&stirrer]() -> int {
+                std::cerr << "[STIRRER] D-Bus: GetActualSpeed\n";
                 auto result = stirrer->GetActualSpeed();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[STIRRER] D-Bus: GetActualSpeed failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to read actual speed"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("GetActualTemp").implementedAs([&stirrer]() -> double {
+                std::cerr << "[STIRRER] D-Bus: GetActualTemp\n";
                 auto result = stirrer->GetActualTemp();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[STIRRER] D-Bus: GetActualTemp failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to read actual temperature"};
+                }
                 return *result;
             }),
             sdbus::registerMethod("GetExternalTemp").implementedAs([&stirrer]() -> double {
+                std::cerr << "[STIRRER] D-Bus: GetExternalTemp\n";
                 auto result = stirrer->GetExternalTemp();
-                if (!result)
+                if (!result) {
+                    std::cerr << "[STIRRER] D-Bus: GetExternalTemp failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Failed to read external temperature"};
+                }
                 return *result;
             })
         ).forInterface(kInterfaceName);

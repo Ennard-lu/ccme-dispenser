@@ -38,6 +38,7 @@ constexpr const char* kFmcIface = "org.ccme.FMC.Control";
 std::atomic<bool> g_running{true};
 
 void SignalHandler(int) {
+    std::cerr << "[WEB] Signal received, shutting down\n";
     g_running = false;
 }
 
@@ -78,6 +79,7 @@ int main() {
         });
 
         server->SetStartCallback([&](double volume_ml) -> bool {
+            std::cerr << "[WEB] Start callback: volume=" << volume_ml << "ml\n";
             try {
                 auto proxy = sdbus::createProxy(
                     *connection,
@@ -86,14 +88,16 @@ int main() {
                 proxy->callMethod("Start")
                     .onInterface(kOrchestratorIface)
                     .withArguments(volume_ml);
+                std::cerr << "[WEB] Start forwarded to orchestrator\n";
                 return true;
             } catch (const std::exception& e) {
-                std::cerr << "Start failed: " << e.what() << "\n";
+                std::cerr << "[WEB] Start failed: " << e.what() << "\n";
                 return false;
             }
         });
 
         server->SetStopCallback([&]() -> bool {
+            std::cerr << "[WEB] Stop callback\n";
             try {
                 auto proxy = sdbus::createProxy(
                     *connection,
@@ -101,21 +105,23 @@ int main() {
                     sdbus::ObjectPath{kOrchestratorPath});
                 proxy->callMethod("Stop")
                     .onInterface(kOrchestratorIface);
+                std::cerr << "[WEB] Stop forwarded to orchestrator\n";
                 return true;
             } catch (const std::exception& e) {
-                std::cerr << "Stop failed: " << e.what() << "\n";
+                std::cerr << "[WEB] Stop failed: " << e.what() << "\n";
                 return false;
             }
         });
 
         auto start_result = server->Start();
         if (!start_result) {
-            std::cerr << "HTTP server failed to start\n";
+            std::cerr << "[WEB] HTTP server failed to start\n";
             return 1;
         }
 
         std::thread poller_thread([&]() {
             auto poll_conn = sdbus::createSystemBusConnection();
+            std::cerr << "[WEB] Status poller started\n";
 
             while (g_running) {
                 nlohmann::json status;
@@ -235,6 +241,7 @@ int main() {
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
+            std::cerr << "[WEB] Status poller stopped\n";
         });
 
         std::thread dbus_thread([&connection]() {
@@ -244,16 +251,21 @@ int main() {
         std::cout << "Web service started\n";
         std::cout << "  D-Bus: " << kBusName << "\n";
         std::cout << "  HTTP:  http://0.0.0.0:" << config.port << "\n";
+        std::cerr << "[WEB] Service started: D-Bus=" << kBusName
+                  << " HTTP=0.0.0.0:" << config.port << "\n";
 
         while (g_running) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
+        std::cerr << "[WEB] Shutting down...\n";
         (void)server->Stop();
         g_running = false;
 
         if (poller_thread.joinable()) poller_thread.join();
         if (dbus_thread.joinable()) dbus_thread.join();
+
+        std::cerr << "[WEB] Shutdown complete\n";
 
     } catch (const std::exception& e) {
         std::cerr << "Web service failed: " << e.what() << "\n";
