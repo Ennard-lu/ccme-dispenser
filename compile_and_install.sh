@@ -1,4 +1,4 @@
-cmake -B build build
+cmake -B build
 cmake --build build --parallel 4
 sudo rm -rf $HOME/.local/bin
 cmake --install build --prefix "$HOME/.local" --component backend

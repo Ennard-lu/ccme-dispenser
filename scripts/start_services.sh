@@ -29,6 +29,8 @@ declare -A SVC_PRI=(
 sudo ${BIN_DIR}/start-ip.sh || echo "ip already set"
 nohup sudo ${BIN_DIR}/gstreamer-stream.sh > "${LOG_DIR}/gstreamer.log" 2>&1 &
 
+sleep 3
+
 for svc in pump stirrer camera fmc web orchestrator; do
     binary="${BIN_DIR}/${SVC_BIN[$svc]}"
     if [ ! -f "$binary" ]; then
@@ -43,8 +45,6 @@ done
 echo "All services started. Logs in ${LOG_DIR}/"
 echo "Press Ctrl+C to stop all services."
 
-trap 'echo "Stopping..."; kill $(jobs -p) 2>/dev/null; exit 0' INT TERM
+trap 'echo "Stopping..."; kill -9 $(jobs -p) 2>/dev/null; exit 0' INT TERM
 
 wait
-
-sudo pkill -9 -f ccme
