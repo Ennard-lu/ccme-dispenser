@@ -247,11 +247,12 @@ struct Workflow::Impl {
 
             state = WorkflowState::kCheckingDissolution;
             std::cerr << "[ORCH] State -> checking_dissolution\n";
-            while (!stop_requested) {
+            /*while (!stop_requested) {
                 if (dbus.CheckDissolution()) break;
                 std::this_thread::sleep_for(
                     std::chrono::milliseconds(kDissolutionPollMs));
-            }
+            }*/
+            std::this_thread::sleep_for(std::chrono::seconds(10));
 
             if (stop_requested) break;
 
@@ -261,7 +262,7 @@ struct Workflow::Impl {
 
             state = WorkflowState::kMovingToVial;
             std::cerr << "[ORCH] State -> moving_to_vial\n";
-            if (!dbus.FmcMoveToVial(current_vial)) {
+            if (false/*!dbus.FmcMoveToVial(current_vial)*/) {
                 std::cerr << "[ORCH] FmcMoveToVial failed\n";
                 state = WorkflowState::kError;
                 return;
