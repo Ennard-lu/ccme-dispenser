@@ -54,9 +54,11 @@ struct FmcController::Impl {
         auto deadline = std::chrono::steady_clock::now() +
                         std::chrono::milliseconds(kMotionTimeoutMs);
         while (std::chrono::steady_clock::now() < deadline) {
-            if (FMC4030_Check_Axis_Is_Stop(card_id, 0) &&
-                FMC4030_Check_Axis_Is_Stop(card_id, 1) &&
-                FMC4030_Check_Axis_Is_Stop(card_id, 2) ) {
+            machine_device_para para;
+            FMC4030_Get_Device_Para(card_id, (unsigned char*)&para);
+            if ((para.axisStatus[0] & MACHINE_RUNNING) || (para.axisStatus[0] & MACHINE_HOME) ||
+                (para.axisStatus[1] & MACHINE_RUNNING) || (para.axisStatus[1] & MACHINE_HOME) ||
+                (para.axisStatus[2] & MACHINE_RUNNING) || (para.axisStatus[2] & MACHINE_HOME)) {
                 return true;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
@@ -102,9 +104,10 @@ std::expected<bool, FmcError> FmcController::Connect() {
         return std::unexpected(FmcError::kConnectionFailed);
     }
 
-    struct machine_device_para para;
-    FMC4030_Get_Device_Para(0, (unsigned char*)&para);
+    machine_device_para para;
+    FMC4030_Get_Device_Para(impl_->card_id, (unsigned char*)&para);
     for (int axis = 0; axis < 3; axis++) {
+        para.homeTime[axis] = 200000;
         para.softLimitMax[axis] = 6000;
         para.softLimitMin[axis] = 6000;
     }
@@ -223,9 +226,11 @@ bool FmcController::IsMoving() const {
     if (!impl_->connected) {
         return false;
     }
-    return !FMC4030_Check_Axis_Is_Stop(impl_->card_id, 0) ||
-           !FMC4030_Check_Axis_Is_Stop(impl_->card_id, 1) ||
-           !FMC4030_Check_Axis_Is_Stop(impl_->card_id, 2);
+    machine_device_para para;
+    FMC4030_Get_Device_Para(_impl->card_id, (unsigned char*)&para);
+    return ((para.axisStatus[0] & MACHINE_RUNNING) || (para.axisStatus[0] & MACHINE_HOME) ||
+            (para.axisStatus[1] & MACHINE_RUNNING) || (para.axisStatus[1] & MACHINE_HOME) ||
+            (para.axisStatus[2] & MACHINE_RUNNING) || (para.axisStatus[2] & MACHINE_HOME));
 }
 
 }  // namespace ccme::fmc
