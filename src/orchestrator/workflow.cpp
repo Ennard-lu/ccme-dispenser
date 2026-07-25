@@ -228,7 +228,7 @@ struct Workflow::Impl {
 
     void Run() {
         std::cerr << "[ORCH] State -> axis return home.\n";
-        if (!FmcReturnHome()) {
+        if (!dbus.FmcReturnHome()) {
             std::cerr << "[ORCH] Fail to return.\n";
             return;
         }
@@ -268,7 +268,7 @@ struct Workflow::Impl {
 
         std::this_thread::sleep_for(std::chrono::seconds(10));
 
-        if (stop_requested) break;
+        if (stop_requested) return;
         std::cerr << "[ORCH] Dissolution complete, stopping stirrer & heater\n";
         dbus.StirrerHeatStop();
         dbus.StirrerStop();

@@ -227,7 +227,7 @@ bool FmcController::IsMoving() const {
         return false;
     }
     machine_status para;
-    FMC4030_Get_Machine_Status(_impl->card_id, (unsigned char*)&para);
+    FMC4030_Get_Machine_Status(impl_->card_id, (unsigned char*)&para);
     return ((para.axisStatus[0] & MACHINE_RUNNING) || (para.axisStatus[0] & MACHINE_HOME) ||
             (para.axisStatus[1] & MACHINE_RUNNING) || (para.axisStatus[1] & MACHINE_HOME) ||
             (para.axisStatus[2] & MACHINE_RUNNING) || (para.axisStatus[2] & MACHINE_HOME));
