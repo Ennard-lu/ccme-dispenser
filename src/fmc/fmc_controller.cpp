@@ -18,7 +18,7 @@ constexpr float kMoveAcc = 200.0f;
 constexpr float kMoveDec = 200.0f;
 constexpr int kHomeDir = 1;
 constexpr int kStopMode = 0;
-constexpr int kMotionTimeoutMs = 30000;
+constexpr int kMotionTimeoutMs = 200000;
 constexpr int kPollIntervalMs = 50;
 constexpr float kDownZPosition = -500;
 
