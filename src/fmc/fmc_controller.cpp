@@ -53,8 +53,7 @@ struct FmcController::Impl {
     }
 
     bool WaitForStop() {
-        auto deadline = std::chrono::steady_clock::now() +
-                        std::chrono::milliseconds(kMotionTimeoutMs);
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kMotionTimeoutMs);
         while (std::chrono::steady_clock::now() < deadline) {
             machine_status para;
             FMC4030_Get_Machine_Status(card_id, (unsigned char*)&para);
@@ -70,13 +69,13 @@ struct FmcController::Impl {
     }
 
     void UpZ() const {
-        FMC4030_Home_Single_Axis(0, 2, 100, 100, 0.1, 1);
-        std::cerr << "[FMC] Z axis lifted.";
+        FMC4030_Home_Single_Axis(card_id, 2, 100, 100, 0.1, 1);
+        std::cerr << "[FMC] Z axis lifted.\n";
     }
 
     void DownZ() const {
-        FMC4030_Jog_Single_Axis(0, 2, kDownZPosition, 100, 100, 200, 1);
-        std::cerr << "[FMC] Z axis down.";
+        FMC4030_Jog_Single_Axis(card_id, 2, kDownZPosition, 100, 100, 200, 1);
+        std::cerr << "[FMC] Z axis down.\n";
     }
 };
 
@@ -138,8 +137,7 @@ std::expected<bool, FmcError> FmcController::Home() {
     std::cerr << "[FMC] Homing axes...\n";
 
     for (int axis = 0; axis < 3; ++axis) {
-        FMC4030_Home_Single_Axis(impl_->card_id, axis,
-                                 kHomeSpeed, kHomeAcc, kHomeDec, kHomeDir);
+        FMC4030_Home_Single_Axis(impl_->card_id, axis, kHomeSpeed, kHomeAcc, 0, kHomeDir);
     }
 
     if (!impl_->WaitForStop())
