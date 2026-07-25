@@ -20,6 +20,7 @@ constexpr int kHomeDir = 1;
 constexpr int kStopMode = 0;
 constexpr int kMotionTimeoutMs = 30000;
 constexpr int kPollIntervalMs = 50;
+constexpr float kDownZPosition = -500;
 
 }  // namespace
 
@@ -32,6 +33,7 @@ struct FmcController::Impl {
     float spacing_y{static_cast<float>(CCME_VIAL_SPACING_Y)};
     float origin_x{static_cast<float>(CCME_VIAL_ORIGIN_X)};
     float origin_y{static_cast<float>(CCME_VIAL_ORIGIN_Y)};
+    float origin_z{static_cast<float>(CCME_VIAL_ORIGIN_Z)};
 
     Impl() : card_id(CCME_FMC_CARD_ID) {
         std::cerr << "[FMC] Initialized: card=" << card_id
@@ -53,13 +55,24 @@ struct FmcController::Impl {
                         std::chrono::milliseconds(kMotionTimeoutMs);
         while (std::chrono::steady_clock::now() < deadline) {
             if (FMC4030_Check_Axis_Is_Stop(card_id, 0) &&
-                FMC4030_Check_Axis_Is_Stop(card_id, 1)) {
+                FMC4030_Check_Axis_Is_Stop(card_id, 1) &&
+                FMC4030_Check_Axis_Is_Stop(card_id, 2) ) {
                 return true;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
         }
         std::cerr << "[FMC] Motion timeout after " << kMotionTimeoutMs << "ms\n";
         return false;
+    }
+
+    void UpZ() const {
+        FMC4030_Home_Single_Axis(0, 2, 100, 100, 0.1, 1);
+        std::cerr << "[FMC] Z axis lifted" << kMotionTimeoutMs << "ms\n";
+    }
+
+    void DownZ() const {
+        FMC4030_Jog_Single_Axis(0, 2, kDownZPosition, 100, 100, 200, 1);
+        std::cerr << "[FMC] Z axis down" << kMotionTimeoutMs << "ms\n";
     }
 };
 
@@ -88,6 +101,14 @@ std::expected<bool, FmcError> FmcController::Connect() {
         std::cerr << "[FMC] Connection failed (error=" << ret << ")\n";
         return std::unexpected(FmcError::kConnectionFailed);
     }
+
+    struct machine_device_para para;
+    FMC4030_Get_Device_Para(0, (unsigned char*)&para);
+    for (int axis = 0; axis < 3; axis++) {
+        para.softLimitMax[axis] = 6000;
+        para.softLimitMin[axis] = 6000;
+    }
+    FMC4030_Set_Device_Para(impl_->card_id, (unsigned char*)&para);
 
     impl_->connected = true;
     std::cerr << "[FMC] Connected\n";
@@ -164,7 +185,17 @@ std::expected<bool, FmcError> FmcController::MoveToVial(int index) {
     int row = index / impl_->vial_cols;
     int col = index % impl_->vial_cols;
     std::cerr << "[FMC] MoveToVial index=" << index << " (row=" << row << " col=" << col << ")\n";
-    return MoveTo(impl_->VialX(col), impl_->VialY(row));
+    impl_->UpZ();
+    if (!impl_->WaitForStop()) {
+        return std::unexpected(FmcError::kMotionFailed);
+    }
+    auto ret =MoveTo(impl_->VialX(col), impl_->VialY(row));
+    if (!ret || !*ret) return ret;
+    impl_->DownZ();
+    if (!impl_->WaitForStop()) {
+        return std::unexpected(FmcError::kMotionFailed);
+    }
+    return ret;
 }
 
 std::expected<bool, FmcError> FmcController::MoveToVial(int row, int col) {
@@ -175,7 +206,17 @@ std::expected<bool, FmcError> FmcController::MoveToVial(int row, int col) {
     }
 
     std::cerr << "[FMC] MoveToVial row=" << row << " col=" << col << "\n";
-    return MoveTo(impl_->VialX(col), impl_->VialY(row));
+    impl_->UpZ();
+    if (!impl_->WaitForStop()) {
+        return std::unexpected(FmcError::kMotionFailed);
+    }
+    auto ret =MoveTo(impl_->VialX(col), impl_->VialY(row));
+    if (!ret || !*ret) return ret;
+    impl_->DownZ();
+    if (!impl_->WaitForStop()) {
+        return std::unexpected(FmcError::kMotionFailed);
+    }
+    return ret;
 }
 
 bool FmcController::IsMoving() const {
@@ -183,7 +224,8 @@ bool FmcController::IsMoving() const {
         return false;
     }
     return !FMC4030_Check_Axis_Is_Stop(impl_->card_id, 0) ||
-           !FMC4030_Check_Axis_Is_Stop(impl_->card_id, 1);
+           !FMC4030_Check_Axis_Is_Stop(impl_->card_id, 1) ||
+           !FMC4030_Check_Axis_Is_Stop(impl_->card_id, 2);
 }
 
 }  // namespace ccme::fmc

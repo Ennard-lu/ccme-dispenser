@@ -179,6 +179,21 @@ public:
         }
     }
 
+    bool FmcReturnHome() {
+        if (!conn_) return false;
+        try {
+            auto proxy = sdbus::createProxy(*conn_,
+                sdbus::ServiceName{kFmcBusName},
+                sdbus::ObjectPath{kFmcObjectPath});
+            proxy->callMethod("Home").onInterface(kFmcInterface);
+            std::cerr << "[ORCH] Home ok\n";
+            return true;
+        } catch (const std::exception& e) {
+            std::cerr << "[ORCH] Home failed: " << e.what() << "\n";
+            return false;
+        }
+    }
+
     bool FmcMoveToVial(int index) {
         if (!conn_) return false;
         try {
@@ -212,57 +227,58 @@ struct Workflow::Impl {
     Impl() {}
 
     void Run() {
-        std::cerr << "[ORCH] Workflow started: volume=" << volume_ml
-                  << "ml total_vials=" << total_vials << "\n";
+        std::cerr << "[ORCH] State -> axis return home.\n";
+        if (!FmcReturnHome()) {
+            std::cerr << "[ORCH] Fail to return.\n";
+            return;
+        }
+
+        state = WorkflowState::kInjectingWater;
+        std::cerr << "[ORCH] State -> injecting_water\n";
+        if (!dbus.PumpStart(volume_ml)) {
+            std::cerr << "[ORCH] PumpStart failed\n";
+            state = WorkflowState::kError;
+            return;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(
+            static_cast<int>(volume_ml / CCME_PUMP0_FLOW_RATE * 1000) + 500));
+        state = WorkflowState::kHeating;
+        std::cerr << "[ORCH] State -> heating\n";
+        if (!dbus.StirrerHeatStart(kHeatTempC)) {
+            std::cerr << "[ORCH] StirrerHeatStart failed\n";
+            state = WorkflowState::kError;
+            return;
+        }
+        state = WorkflowState::kStirring;
+        std::cerr << "[ORCH] State -> stirring\n";
+        if (!dbus.StirrerStart(kStirSpeedRpm)) {
+            std::cerr << "[ORCH] StirrerStart failed\n";
+            state = WorkflowState::kError;
+            return;
+        }
+
+        state = WorkflowState::kCheckingDissolution;
+        std::cerr << "[ORCH] State -> checking_dissolution\n";
+
+        /*while (!stop_requested) {
+            if (dbus.CheckDissolution()) break;
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(kDissolutionPollMs));
+        }*/
+
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+
+        if (stop_requested) break;
+        std::cerr << "[ORCH] Dissolution complete, stopping stirrer & heater\n";
+        dbus.StirrerHeatStop();
+        dbus.StirrerStop();
 
         while (current_vial < total_vials && !stop_requested) {
             std::cerr << "[ORCH] --- Vial " << (current_vial + 1)
                       << "/" << total_vials << " ---\n";
-
-            state = WorkflowState::kInjectingWater;
-            std::cerr << "[ORCH] State -> injecting_water\n";
-            if (!dbus.PumpStart(volume_ml)) {
-                std::cerr << "[ORCH] PumpStart failed\n";
-                state = WorkflowState::kError;
-                return;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(
-                static_cast<int>(volume_ml / CCME_PUMP0_FLOW_RATE * 1000) + 500));
-
-            state = WorkflowState::kHeating;
-            std::cerr << "[ORCH] State -> heating\n";
-            if (!dbus.StirrerHeatStart(kHeatTempC)) {
-                std::cerr << "[ORCH] StirrerHeatStart failed\n";
-                state = WorkflowState::kError;
-                return;
-            }
-
-            state = WorkflowState::kStirring;
-            std::cerr << "[ORCH] State -> stirring\n";
-            if (!dbus.StirrerStart(kStirSpeedRpm)) {
-                std::cerr << "[ORCH] StirrerStart failed\n";
-                state = WorkflowState::kError;
-                return;
-            }
-
-            state = WorkflowState::kCheckingDissolution;
-            std::cerr << "[ORCH] State -> checking_dissolution\n";
-            /*while (!stop_requested) {
-                if (dbus.CheckDissolution()) break;
-                std::this_thread::sleep_for(
-                    std::chrono::milliseconds(kDissolutionPollMs));
-            }*/
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-
-            if (stop_requested) break;
-
-            std::cerr << "[ORCH] Dissolution complete, stopping stirrer & heater\n";
-            dbus.StirrerHeatStop();
-            dbus.StirrerStop();
-
             state = WorkflowState::kMovingToVial;
             std::cerr << "[ORCH] State -> moving_to_vial\n";
-            if (false/*!dbus.FmcMoveToVial(current_vial)*/) {
+            if (!dbus.FmcMoveToVial(current_vial)) {
                 std::cerr << "[ORCH] FmcMoveToVial failed\n";
                 state = WorkflowState::kError;
                 return;
@@ -359,7 +375,7 @@ std::string Workflow::GetStateString() const {
         case WorkflowState::kInjectingWater:      return "injecting_water";
         case WorkflowState::kHeating:             return "heating";
         case WorkflowState::kStirring:            return "stirring";
-        case WorkflowState::kCheckingDissolution:  return "checking_dissolution";
+        case WorkflowState::kCheckingDissolution: return "checking_dissolution";
         case WorkflowState::kDispensing:          return "dispensing";
         case WorkflowState::kMovingToVial:        return "moving_to_vial";
         case WorkflowState::kComplete:            return "complete";

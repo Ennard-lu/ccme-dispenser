@@ -51,12 +51,13 @@ set(CCME_WEB_HTTP_PORT 8080 CACHE STRING "HTTP server port")
 set(CCME_WEB_LISTEN_ADDRESS "0.0.0.0" CACHE STRING "HTTP server listen address")
 
 # Vial matrix options
-set(CCME_VIAL_ROWS 4 CACHE STRING "Number of vial rows")
-set(CCME_VIAL_COLS 4 CACHE STRING "Number of vial columns")
+set(CCME_VIAL_ROWS 6 CACHE STRING "Number of vial rows")
+set(CCME_VIAL_COLS 6 CACHE STRING "Number of vial columns")
 set(CCME_VIAL_SPACING_X 50.0 CACHE STRING "X-axis spacing between vials (mm)")
 set(CCME_VIAL_SPACING_Y 50.0 CACHE STRING "Y-axis spacing between vials (mm)")
 set(CCME_VIAL_ORIGIN_X 0.0 CACHE STRING "X coordinate of first vial (mm)")
 set(CCME_VIAL_ORIGIN_Y 0.0 CACHE STRING "Y coordinate of first vial (mm)")
+set(CCME_VIAL_ORIGIN_Z 0.0 CACHE STRING "Z coordinate of first vial (mm)")
 
 # ──────────────────────────────────────────────
 # Third-party dependencies (git submodules)
@@ -127,6 +128,7 @@ add_compile_definitions(
     CCME_VIAL_SPACING_Y=${CCME_VIAL_SPACING_Y}
     CCME_VIAL_ORIGIN_X=${CCME_VIAL_ORIGIN_X}
     CCME_VIAL_ORIGIN_Y=${CCME_VIAL_ORIGIN_Y}
+    CCME_VIAL_ORIGIN_Z=${CCME_VIAL_ORIGIN_Z}
 )
 
 # ──────────────────────────────────────────────
