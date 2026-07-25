@@ -158,6 +158,7 @@ std::expected<bool, FmcError> FmcController::MoveTo(float x, float y) {
     FMC4030_Jog_Single_Axis(impl_->card_id, 1, y, kMoveSpeed, kMoveAcc, kMoveDec, 2);
 
     if (!impl_->WaitForStop()) {
+        std::cerr << "[FMC] MoveTo Timeout!\n";
         return std::unexpected(FmcError::kMotionFailed);
     }
 
@@ -178,7 +179,7 @@ std::expected<bool, FmcError> FmcController::MoveToVial(int index) {
     if (!impl_->WaitForStop()) {
         return std::unexpected(FmcError::kMotionFailed);
     }
-    auto ret =MoveTo(impl_->VialX(col), impl_->VialY(row));
+    auto ret = MoveTo(impl_->VialX(col), impl_->VialY(row));
     if (!ret || !*ret) return ret;
     impl_->DownZ();
     if (!impl_->WaitForStop()) {
@@ -199,7 +200,7 @@ std::expected<bool, FmcError> FmcController::MoveToVial(int row, int col) {
     if (!impl_->WaitForStop()) {
         return std::unexpected(FmcError::kMotionFailed);
     }
-    auto ret =MoveTo(impl_->VialX(col), impl_->VialY(row));
+    auto ret = MoveTo(impl_->VialX(col), impl_->VialY(row));
     if (!ret || !*ret) return ret;
     impl_->DownZ();
     if (!impl_->WaitForStop()) {

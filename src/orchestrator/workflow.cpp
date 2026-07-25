@@ -200,7 +200,8 @@ public:
             auto proxy = sdbus::createProxy(*conn_,
                 sdbus::ServiceName{kFmcBusName},
                 sdbus::ObjectPath{kFmcObjectPath});
-            proxy->callMethod("MoveToVial").onInterface(kFmcInterface).withArguments(index);
+            auto timeout = sdbus::Timeout::seconds(60);
+            proxy->callMethod("MoveToVial").onInterface(kFmcInterface).withArguments(index).withTimeout(timeout);
             std::cerr << "[ORCH] FmcMoveToVial(" << index << ") ok\n";
             return true;
         } catch (const std::exception& e) {
