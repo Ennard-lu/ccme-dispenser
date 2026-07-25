@@ -11,11 +11,11 @@ namespace ccme::fmc {
 namespace {
 
 constexpr float kHomeSpeed = 100.0f;
-constexpr float kHomeAcc = 100.0f;
+constexpr float kHomeAcc = 400.0f;
 constexpr float kHomeDec = 600.0f;
 constexpr float kMoveSpeed = 200.0f;
 constexpr float kMoveAcc = 200.0f;
-constexpr float kMoveDec = 600.0f;
+constexpr float kMoveDec = 800.0f;
 constexpr int kHomeDir = 1;
 constexpr int kStopMode = 0;
 constexpr int kMotionTimeoutMs = 200000;
