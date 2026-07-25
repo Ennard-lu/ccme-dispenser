@@ -29,6 +29,8 @@ struct FmcController::Impl {
     bool connected{false};
     int vial_rows{CCME_VIAL_ROWS};
     int vial_cols{CCME_VIAL_COLS};
+    float home_position_x{};
+    float home_position_y{};
     float spacing_x{static_cast<float>(CCME_VIAL_SPACING_X)};
     float spacing_y{static_cast<float>(CCME_VIAL_SPACING_Y)};
     float origin_x{static_cast<float>(CCME_VIAL_ORIGIN_X)};
@@ -43,11 +45,11 @@ struct FmcController::Impl {
     }
 
     float VialX(int col) const {
-        return origin_x + static_cast<float>(col) * spacing_x;
+        return home_position_x + origin_x + static_cast<float>(col) * spacing_x;
     }
 
     float VialY(int row) const {
-        return origin_y + static_cast<float>(row) * spacing_y;
+        return home_position_y + origin_y + static_cast<float>(row) * spacing_y;
     }
 
     bool WaitForStop() {
@@ -135,30 +137,15 @@ std::expected<bool, FmcError> FmcController::Home() {
 
     std::cerr << "[FMC] Homing axes...\n";
 
-    for (int axis = 0; axis < 2; ++axis) {
+    for (int axis = 0; axis < 3; ++axis) {
         FMC4030_Home_Single_Axis(impl_->card_id, axis,
                                  kHomeSpeed, kHomeAcc, kHomeDec, kHomeDir);
     }
 
-    auto deadline = std::chrono::steady_clock::now() +
-                    std::chrono::milliseconds(60000);
-    while (std::chrono::steady_clock::now() < deadline) {
-        bool done = true;
-        for (int axis = 0; axis < 2; ++axis) {
-            if (!FMC4030_Check_Axis_Is_Stop(impl_->card_id, axis)) {
-                done = false;
-                break;
-            }
-        }
-        if (done) {
-            std::cerr << "[FMC] Home completed\n";
-            return true;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-
-    std::cerr << "[FMC] Home timeout\n";
-    return std::unexpected(FmcError::kHomeFailed);
+    if (!impl_->WaitForStop())
+        return std::unexpected(FmcError::kHomeFailed);
+    else
+        return true;
 }
 
 std::expected<bool, FmcError> FmcController::MoveTo(float x, float y) {
@@ -169,7 +156,8 @@ std::expected<bool, FmcError> FmcController::MoveTo(float x, float y) {
 
     std::cerr << "[FMC] Moving to (" << x << ", " << y << ")\n";
 
-    FMC4030_Line_2Axis(impl_->card_id, 0x03, x, y, kMoveSpeed, kMoveAcc, kMoveDec);
+    FMC4030_Jog_Single_Axis(impl_->card_id, 0, x, kMoveSpeed, kMoveAcc, kMoveDec, 2);
+    FMC4030_Jog_Single_Axis(impl_->card_id, 1, y, kMoveSpeed, kMoveAcc, kMoveDec, 2);
 
     if (!impl_->WaitForStop()) {
         return std::unexpected(FmcError::kMotionFailed);
