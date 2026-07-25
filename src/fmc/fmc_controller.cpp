@@ -55,6 +55,18 @@ struct FmcController::Impl {
     bool WaitForStop() {
         auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kMotionTimeoutMs);
         while (std::chrono::steady_clock::now() < deadline) {
+            if (FMC4030_Check_Axis_Is_Stop(card_id, 0) && FMC4030_Check_Axis_Is_Stop(card_id, 1) && FMC4030_Check_Axis_Is_Stop(card_id, 2)) {
+                return true;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
+        }
+        std::cerr << "[FMC] Motion timeout after " << kMotionTimeoutMs << "ms\n";
+        return false;
+    }
+
+    bool WaitForStopHome() {
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kMotionTimeoutMs);
+        while (std::chrono::steady_clock::now() < deadline) {
             machine_status para;
             FMC4030_Get_Machine_Status(card_id, (unsigned char*)&para);
             if (!(para.axisStatus[0] & MACHINE_RUNNING) && !(para.axisStatus[0] & MACHINE_HOME) &&
@@ -69,12 +81,12 @@ struct FmcController::Impl {
     }
 
     void UpZ() const {
-        FMC4030_Home_Single_Axis(card_id, 2, kHomeSpeed, kHomeAcc, 0, 1);
+        FMC4030_Jog_Single_Axis(card_id, 2, -kDownZPosition, kMoveSpeed, kMoveAcc, kMoveDec, 1);
         std::cerr << "[FMC] Z axis lifted.\n";
     }
 
     void DownZ() const {
-        FMC4030_Jog_Single_Axis(card_id, 2, kDownZPosition, kMoveSpeed, kMoveAcc, kMoveDec, 2);
+        FMC4030_Jog_Single_Axis(card_id, 2, kDownZPosition, kMoveSpeed, kMoveAcc, kMoveDec, 1);
         std::cerr << "[FMC] Z axis down.\n";
     }
 };
@@ -140,7 +152,7 @@ std::expected<bool, FmcError> FmcController::Home() {
         FMC4030_Home_Single_Axis(impl_->card_id, axis, kHomeSpeed, kHomeAcc, 0, kHomeDir);
     }
 
-    if (!impl_->WaitForStop())
+    if (!impl_->WaitForStopHome())
         return std::unexpected(FmcError::kHomeFailed);
     else
         return true;
