@@ -56,6 +56,7 @@ struct FmcController::Impl {
         auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kMotionTimeoutMs);
         while (std::chrono::steady_clock::now() < deadline) {
             if (FMC4030_Check_Axis_Is_Stop(card_id, 0) && FMC4030_Check_Axis_Is_Stop(card_id, 1) && FMC4030_Check_Axis_Is_Stop(card_id, 2)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 return true;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
@@ -72,6 +73,7 @@ struct FmcController::Impl {
             if (!(para.axisStatus[0] & MACHINE_RUNNING) && !(para.axisStatus[0] & MACHINE_HOME) &&
                 !(para.axisStatus[1] & MACHINE_RUNNING) && !(para.axisStatus[1] & MACHINE_HOME) &&
                 !(para.axisStatus[2] & MACHINE_RUNNING) && !(para.axisStatus[2] & MACHINE_HOME)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 return true;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
