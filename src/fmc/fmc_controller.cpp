@@ -55,10 +55,10 @@ struct FmcController::Impl {
                         std::chrono::milliseconds(kMotionTimeoutMs);
         while (std::chrono::steady_clock::now() < deadline) {
             machine_status para;
-            FMC4030_Get_Device_Para(card_id, (unsigned char*)&para);
-            if ((para.axisStatus[0] & MACHINE_RUNNING) || (para.axisStatus[0] & MACHINE_HOME) ||
-                (para.axisStatus[1] & MACHINE_RUNNING) || (para.axisStatus[1] & MACHINE_HOME) ||
-                (para.axisStatus[2] & MACHINE_RUNNING) || (para.axisStatus[2] & MACHINE_HOME)) {
+            FMC4030_Get_Machine_Status(card_id, (unsigned char*)&para);
+            if (!(para.axisStatus[0] & MACHINE_RUNNING) && !(para.axisStatus[0] & MACHINE_HOME) &&
+                !(para.axisStatus[1] & MACHINE_RUNNING) && !(para.axisStatus[1] & MACHINE_HOME) &&
+                !(para.axisStatus[2] & MACHINE_RUNNING) && !(para.axisStatus[2] & MACHINE_HOME)) {
                 return true;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
@@ -69,12 +69,12 @@ struct FmcController::Impl {
 
     void UpZ() const {
         FMC4030_Home_Single_Axis(0, 2, 100, 100, 0.1, 1);
-        std::cerr << "[FMC] Z axis lifted" << kMotionTimeoutMs << "ms\n";
+        std::cerr << "[FMC] Z axis lifted.";
     }
 
     void DownZ() const {
         FMC4030_Jog_Single_Axis(0, 2, kDownZPosition, 100, 100, 200, 1);
-        std::cerr << "[FMC] Z axis down" << kMotionTimeoutMs << "ms\n";
+        std::cerr << "[FMC] Z axis down.";
     }
 };
 
