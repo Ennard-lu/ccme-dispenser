@@ -54,7 +54,7 @@ struct FmcController::Impl {
         auto deadline = std::chrono::steady_clock::now() +
                         std::chrono::milliseconds(kMotionTimeoutMs);
         while (std::chrono::steady_clock::now() < deadline) {
-            machine_device_para para;
+            machine_status para;
             FMC4030_Get_Device_Para(card_id, (unsigned char*)&para);
             if ((para.axisStatus[0] & MACHINE_RUNNING) || (para.axisStatus[0] & MACHINE_HOME) ||
                 (para.axisStatus[1] & MACHINE_RUNNING) || (para.axisStatus[1] & MACHINE_HOME) ||
@@ -226,8 +226,8 @@ bool FmcController::IsMoving() const {
     if (!impl_->connected) {
         return false;
     }
-    machine_device_para para;
-    FMC4030_Get_Device_Para(_impl->card_id, (unsigned char*)&para);
+    machine_status para;
+    FMC4030_Get_Machine_Status(_impl->card_id, (unsigned char*)&para);
     return ((para.axisStatus[0] & MACHINE_RUNNING) || (para.axisStatus[0] & MACHINE_HOME) ||
             (para.axisStatus[1] & MACHINE_RUNNING) || (para.axisStatus[1] & MACHINE_HOME) ||
             (para.axisStatus[2] & MACHINE_RUNNING) || (para.axisStatus[2] & MACHINE_HOME));
