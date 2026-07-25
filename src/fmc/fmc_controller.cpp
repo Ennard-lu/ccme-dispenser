@@ -69,12 +69,12 @@ struct FmcController::Impl {
     }
 
     void UpZ() const {
-        FMC4030_Home_Single_Axis(card_id, 2, 100, 100, 0.1, 1);
+        FMC4030_Home_Single_Axis(card_id, 2, 200, 100, 0, 1);
         std::cerr << "[FMC] Z axis lifted.\n";
     }
 
     void DownZ() const {
-        FMC4030_Jog_Single_Axis(card_id, 2, kDownZPosition, 100, 100, 200, 1);
+        FMC4030_Jog_Single_Axis(card_id, 2, kDownZPosition, 100, 100, 200, 2);
         std::cerr << "[FMC] Z axis down.\n";
     }
 };
