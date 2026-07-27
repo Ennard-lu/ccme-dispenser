@@ -3,118 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCME Dispenser Control Panel</title>
+    <title>CCME Dispenser</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
+    <div class="app">
         <header>
-            <h1>CCME Dispenser</h1>
+            <div class="header-left">
+                <img class="logo" src="pku-logo.png" alt="北京大学">
+                <h1>CCME Dispenser</h1>
+            </div>
             <div id="status-indicator" class="status-badge status-idle">
                 <span class="status-dot"></span>
-                <span id="status-text">Idle</span>
+                <span id="status-text">空闲</span>
             </div>
         </header>
 
-        <main class="dashboard">
-            <section class="video-panel">
-                <h2>Live Stream</h2>
-                <div class="video-container">
-                    <video id="video-mse" class="video-stream" autoplay muted playsinline></video>
-                    <img id="video-mjpeg" class="video-stream" src="/api/stream" alt="Camera Stream"
-                         onerror="this.style.display='none'; document.getElementById('video-overlay').classList.remove('hidden');">
-                    <div class="video-overlay" id="video-overlay">
-                        <span>Connecting...</span>
+        <div class="main-area">
+            <div class="left-panel">
+                <div class="left-header">
+                    <button class="view-btn active" data-view="monitor">视频监控</button>
+                    <button class="view-btn" data-view="vials">样品矩阵</button>
+                </div>
+                <div class="left-content">
+                    <div class="left-view active" id="view-monitor">
+                        <div class="video-container">
+                            <video id="video-mse" class="video-stream" autoplay muted playsinline></video>
+                            <img id="video-mjpeg" class="video-stream" src="/api/stream" alt="Camera Stream">
+                            <div class="video-overlay" id="video-overlay">
+                                <span>连接中...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="left-view" id="view-vials">
+                        <div class="vial-grid-wrapper">
+                            <div id="vial-grid" class="vial-grid"></div>
+                            <div class="vial-legend">
+                                <span class="legend-item"><span class="legend-dot legend-empty"></span> 待填充</span>
+                                <span class="legend-item"><span class="legend-dot legend-filled"></span> 已填充</span>
+                                <span class="legend-item"><span class="legend-dot legend-current"></span> 当前</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <section class="modules-panel">
-                <h2>Module Status</h2>
-                <div class="module-grid">
-                    <div class="module-card" id="mod-pump">
-                        <div class="module-icon pump-icon">P1</div>
-                        <div class="module-info">
-                            <div class="module-name">Pump 1</div>
-                            <div class="module-status" id="pump1-status">OFF</div>
-                        </div>
-                        <div class="module-indicator offline"></div>
+            <div class="right-panel">
+                <div class="right-top">
+                    <div class="panel-header">
+                        <div class="panel-header-icon"></div>
+                        <span class="panel-header-title">参数控制</span>
                     </div>
-                    <div class="module-card" id="mod-pump2">
-                        <div class="module-icon pump-icon">P2</div>
-                        <div class="module-info">
-                            <div class="module-name">Pump 2</div>
-                            <div class="module-status" id="pump2-status">OFF</div>
+                    <div class="panel-body">
+                        <div class="params-section">
+                            <h3><span class="section-dot"></span> 基本选项</h3>
+                            <div class="params-grid">
+                                <div class="input-group">
+                                    <label for="volume-input">注水量 (ml)</label>
+                                    <input type="number" id="volume-input" min="1" max="1000" value="100" step="1">
+                                </div>
+                                <div class="input-group">
+                                    <label for="dispense-volume-input">转移量 (ml)</label>
+                                    <input type="number" id="dispense-volume-input" min="1" max="1000" value="10" step="1">
+                                </div>
+                            </div>
                         </div>
-                        <div class="module-indicator offline"></div>
-                    </div>
-                    <div class="module-card" id="mod-stirrer">
-                        <div class="module-icon stirrer-icon">S</div>
-                        <div class="module-info">
-                            <div class="module-name">Stirrer</div>
-                            <div class="module-status" id="stirrer-status">OFF</div>
-                            <div class="module-detail" id="stirrer-detail"></div>
+                        <div class="params-section">
+                            <h3><span class="section-dot advanced"></span> 高级选项</h3>
+                            <div class="params-grid">
+                                <div class="input-group">
+                                    <label for="stir-speed-input">搅拌转速 (RPM)</label>
+                                    <input type="number" id="stir-speed-input" min="0" max="1500" value="200" step="10">
+                                </div>
+                                <div class="input-group">
+                                    <label for="heat-temp-input">加热温度 (&deg;C)</label>
+                                    <input type="number" id="heat-temp-input" min="0" max="340" value="50" step="1">
+                                </div>
+                            </div>
                         </div>
-                        <div class="module-indicator offline"></div>
-                    </div>
-                    <div class="module-card" id="mod-camera">
-                        <div class="module-icon camera-icon">C</div>
-                        <div class="module-info">
-                            <div class="module-name">Camera</div>
-                            <div class="module-status" id="camera-status">Offline</div>
+                        <div class="action-bar">
+                            <button id="btn-start" class="btn btn-primary">&#9654; 启动</button>
+                            <button id="btn-stop" class="btn btn-danger" disabled>&#9724; 停止</button>
                         </div>
-                        <div class="module-indicator offline"></div>
-                    </div>
-                    <div class="module-card" id="mod-fmc">
-                        <div class="module-icon fmc-icon">F</div>
-                        <div class="module-info">
-                            <div class="module-name">FMC Stage</div>
-                            <div class="module-status" id="fmc-status">Offline</div>
+                        <div class="progress-info">
+                            <div class="info-row">
+                                <span>当前样品瓶</span>
+                                <span class="info-value"><span id="current-vial">0</span> / <span id="total-vials">36</span></span>
+                            </div>
+                            <div class="info-row">
+                                <span>运行状态</span>
+                                <span class="info-value" id="current-state">空闲</span>
+                            </div>
                         </div>
-                        <div class="module-indicator offline"></div>
                     </div>
                 </div>
-            </section>
 
-            <section class="control-panel">
-                <h2>Workflow Control</h2>
-                <div class="input-group">
-                    <label for="volume-input">Water Volume (ml):</label>
-                    <input type="number" id="volume-input" min="1" max="1000" value="100" step="1">
-                </div>
-                <div class="input-group">
-                    <label for="stir-speed-input">Stirrer Speed (RPM):</label>
-                    <input type="number" id="stir-speed-input" min="0" max="1500" value="200" step="10">
-                </div>
-                <div class="input-group">
-                    <label for="heat-temp-input">Heat Temperature (°C):</label>
-                    <input type="number" id="heat-temp-input" min="0" max="340" value="50" step="1">
-                </div>
-                <div class="input-group">
-                    <label for="dispense-volume-input">Pump 2 Dispense Volume (ml):</label>
-                    <input type="number" id="dispense-volume-input" min="1" max="1000" value="10" step="1">
-                </div>
-                <div class="button-group">
-                    <button id="btn-start" class="btn btn-primary">Start</button>
-                    <button id="btn-stop" class="btn btn-danger" disabled>Stop</button>
-                </div>
-                <div class="progress-info">
-                    <div class="info-row">
-                        <span>Current Vial:</span>
-                        <span><span id="current-vial">0</span> / <span id="total-vials">16</span></span>
+                <div class="right-bottom">
+                    <div class="panel-header">
+                        <div class="panel-header-icon"></div>
+                        <span class="panel-header-title">模块状态</span>
                     </div>
-                    <div class="info-row">
-                        <span>State:</span>
-                        <span id="current-state">idle</span>
+                    <div class="panel-body">
+                        <div class="module-list">
+                            <div class="module-row" id="mod-pump">
+                                <div class="module-icon pump">
+                                    <svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+                                        <rect x="6" y="8" width="7" height="12" rx="1"/>
+                                        <rect x="15" y="8" width="7" height="12" rx="1"/>
+                                        <line x1="9.5" y1="5" x2="9.5" y2="8"/>
+                                        <line x1="18.5" y1="5" x2="18.5" y2="8"/>
+                                    </svg>
+                                </div>
+                                <div class="module-info">
+                                    <div class="module-name">泵 1 (注水)</div>
+                                    <div class="module-status" id="pump1-status">关闭</div>
+                                </div>
+                                <div class="module-indicator offline"></div>
+                            </div>
+                            <div class="module-row" id="mod-pump2">
+                                <div class="module-icon pump2">
+                                    <svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+                                        <rect x="6" y="8" width="7" height="12" rx="1"/>
+                                        <rect x="15" y="8" width="7" height="12" rx="1"/>
+                                        <line x1="9.5" y1="5" x2="9.5" y2="8"/>
+                                        <line x1="18.5" y1="5" x2="18.5" y2="8"/>
+                                    </svg>
+                                </div>
+                                <div class="module-info">
+                                    <div class="module-name">泵 2 (转移)</div>
+                                    <div class="module-status" id="pump2-status">关闭</div>
+                                </div>
+                                <div class="module-indicator offline"></div>
+                            </div>
+                            <div class="module-row" id="mod-stirrer">
+                                <div class="module-icon stirrer">
+                                    <svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke-width="2">
+                                        <circle cx="14" cy="14" r="4"/>
+                                        <circle cx="14" cy="14" r="9"/>
+                                    </svg>
+                                </div>
+                                <div class="module-info">
+                                    <div class="module-name">磁力搅拌器</div>
+                                    <div class="module-status" id="stirrer-status">关闭</div>
+                                    <div class="module-detail" id="stirrer-detail"></div>
+                                </div>
+                                <div class="module-indicator offline"></div>
+                            </div>
+                            <div class="module-row" id="mod-camera">
+                                <div class="module-icon camera">
+                                    <svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="white" stroke-width="2">
+                                        <circle cx="14" cy="14" r="8"/>
+                                        <circle cx="14" cy="14" r="3"/>
+                                    </svg>
+                                </div>
+                                <div class="module-info">
+                                    <div class="module-name">视觉检测</div>
+                                    <div class="module-status" id="camera-status">离线</div>
+                                </div>
+                                <div class="module-indicator offline"></div>
+                            </div>
+                            <div class="module-row" id="mod-fmc">
+                                <div class="module-icon fmc">
+                                    <svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+                                        <line x1="14" y1="4" x2="14" y2="24"/>
+                                        <line x1="4" y1="14" x2="24" y2="14"/>
+                                        <polyline points="11,7 14,4 17,7"/>
+                                        <polyline points="21,11 24,14 21,17"/>
+                                    </svg>
+                                </div>
+                                <div class="module-info">
+                                    <div class="module-name">三轴平台</div>
+                                    <div class="module-status" id="fmc-status">离线</div>
+                                </div>
+                                <div class="module-indicator offline"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </section>
-
-            <section class="vial-grid-panel">
-                <h2>Vial Matrix</h2>
-                <div id="vial-grid" class="vial-grid"></div>
-            </section>
-        </main>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"></script>

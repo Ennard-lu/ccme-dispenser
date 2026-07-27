@@ -17,29 +17,55 @@ const videoMjpeg = document.getElementById('video-mjpeg');
 const videoOverlay = document.getElementById('video-overlay');
 const stirrerDetailEl = document.getElementById('stirrer-detail');
 
+const STATE_MAP = {
+    idle: '空闲',
+    injecting_water: '注水中',
+    heating: '加热中',
+    stirring: '搅拌中',
+    checking_dissolution: '检测溶解',
+    dispensing: '转移中',
+    moving_to_vial: '移动平台',
+    complete: '已完成',
+    error: '错误',
+    unknown: '未知',
+};
+
 let pollTimer = null;
 let mpegtsPlayer = null;
+
+// ── Left panel view switching ──
+
+document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.left-view').forEach(v => v.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('view-' + btn.dataset.view).classList.add('active');
+    });
+});
+
+// ── Status ──
 
 function setStatus(state) {
     statusEl.className = 'status-badge';
     if (state === 'idle') {
         statusEl.classList.add('status-idle');
-        statusTextEl.textContent = 'Idle';
+        statusTextEl.textContent = '空闲';
         btnStart.disabled = false;
         btnStop.disabled = true;
     } else if (state === 'complete') {
         statusEl.classList.add('status-complete');
-        statusTextEl.textContent = 'Complete';
+        statusTextEl.textContent = '已完成';
         btnStart.disabled = false;
         btnStop.disabled = true;
     } else if (state === 'error') {
         statusEl.classList.add('status-error');
-        statusTextEl.textContent = 'Error';
+        statusTextEl.textContent = '错误';
         btnStart.disabled = false;
         btnStop.disabled = true;
     } else {
         statusEl.classList.add('status-running');
-        statusTextEl.textContent = state.replace(/_/g, ' ');
+        statusTextEl.textContent = STATE_MAP[state] || state;
         btnStart.disabled = true;
         btnStop.disabled = false;
     }
@@ -47,28 +73,28 @@ function setStatus(state) {
 
 function updateModuleStatus(id, running, label) {
     const card = document.getElementById(id);
-    const statusEl = card.querySelector('.module-status');
+    const sEl = card.querySelector('.module-status');
     const indicator = card.querySelector('.module-indicator');
 
     if (running) {
         card.classList.add('active');
-        statusEl.textContent = label || 'ON';
+        sEl.textContent = label || '运行中';
         indicator.className = 'module-indicator active';
     } else {
         card.classList.remove('active');
-        statusEl.textContent = label || 'OFF';
+        sEl.textContent = label || '关闭';
         indicator.className = 'module-indicator online';
     }
 }
 
 function updateModuleOffline(id) {
     const card = document.getElementById(id);
-    const statusEl = card.querySelector('.module-status');
-    const indicator = card.querySelector('.module-indicator');
+    card.querySelector('.module-status').textContent = '离线';
     card.classList.remove('active');
-    statusEl.textContent = 'Offline';
-    indicator.className = 'module-indicator offline';
+    card.querySelector('.module-indicator').className = 'module-indicator offline';
 }
+
+// ── Fetch status ──
 
 async function fetchStatus() {
     try {
@@ -78,22 +104,22 @@ async function fetchStatus() {
 
         setStatus(data.state);
         currentVialEl.textContent = data.current_vial || 0;
-        totalVialsEl.textContent = data.total_vials || 16;
-        currentStateEl.textContent = (data.state || 'idle').replace(/_/g, ' ');
+        totalVialsEl.textContent = data.total_vials || 36;
+        currentStateEl.textContent = STATE_MAP[data.state] || data.state || '空闲';
 
         if (data.modules) {
             const m = data.modules;
 
             if (m.pump) {
                 updateModuleStatus('mod-pump', m.pump.running,
-                    m.pump.running ? 'Running' : 'OFF');
+                    m.pump.running ? '运行中' : '关闭');
             } else {
                 updateModuleOffline('mod-pump');
             }
 
             if (m.pump2) {
                 updateModuleStatus('mod-pump2', m.pump2.running,
-                    m.pump2.running ? 'Running' : 'OFF');
+                    m.pump2.running ? '运行中' : '关闭');
             } else {
                 updateModuleOffline('mod-pump2');
             }
@@ -104,9 +130,9 @@ async function fetchStatus() {
                 if (s.stirring) parts.push(`${s.speed} RPM`);
                 if (s.heating) parts.push(`${s.set_temp.toFixed(1)}°C / ${s.temp.toFixed(1)}°C`);
                 else if (s.temp > 0) parts.push(`${s.temp.toFixed(1)}°C`);
-                const label = s.stirring || s.heating ? parts.join(' | ') : 'OFF';
+                const label = s.stirring || s.heating ? parts.join(' | ') : '关闭';
                 updateModuleStatus('mod-stirrer', s.stirring || s.heating, label);
-                stirrerDetailEl.textContent = parts.length > 0 ? '' : '';
+                stirrerDetailEl.textContent = '';
             } else {
                 updateModuleOffline('mod-stirrer');
                 stirrerDetailEl.textContent = '';
@@ -114,27 +140,28 @@ async function fetchStatus() {
 
             if (m.camera) {
                 updateModuleStatus('mod-camera', m.camera.connected,
-                    m.camera.connected ? 'Connected' : 'Offline');
+                    m.camera.connected ? '已连接' : '离线');
             } else {
                 updateModuleOffline('mod-camera');
             }
 
             if (m.fmc) {
-                const fmcLabel = m.fmc.moving ? 'Moving'
-                    : m.fmc.connected ? 'Ready' : 'Offline';
-                updateModuleStatus('mod-fmc', m.fmc.connected || m.fmc.moving,
-                    fmcLabel);
+                const fmcLabel = m.fmc.moving ? '移动中'
+                    : m.fmc.connected ? '就绪' : '离线';
+                updateModuleStatus('mod-fmc', m.fmc.connected || m.fmc.moving, fmcLabel);
             } else {
                 updateModuleOffline('mod-fmc');
             }
         }
 
-        updateVialGrid(data.total_vials || 16, data.current_vial || 0,
+        updateVialGrid(data.total_vials || 36, data.current_vial || 0,
             data.state || 'idle');
     } catch (e) {
         console.error('Status fetch failed:', e);
     }
 }
+
+// ── Vial grid ──
 
 function updateVialGrid(total, current, state) {
     vialGrid.innerHTML = '';
@@ -156,30 +183,20 @@ function updateVialGrid(total, current, state) {
     }
 }
 
+// ── Workflow ──
+
 async function startWorkflow() {
     const volume = parseFloat(volumeInput.value);
-    if (isNaN(volume) || volume <= 0) {
-        alert('Please enter a valid water volume.');
-        return;
-    }
+    if (isNaN(volume) || volume <= 0) { alert('请输入有效的注水量'); return; }
 
     const stirSpeed = parseInt(stirSpeedInput.value, 10);
-    if (isNaN(stirSpeed) || stirSpeed < 0) {
-        alert('Please enter a valid stirrer speed.');
-        return;
-    }
+    if (isNaN(stirSpeed) || stirSpeed < 0) { alert('请输入有效的搅拌转速'); return; }
 
     const heatTemp = parseFloat(heatTempInput.value);
-    if (isNaN(heatTemp) || heatTemp < 0) {
-        alert('Please enter a valid heat temperature.');
-        return;
-    }
+    if (isNaN(heatTemp) || heatTemp < 0) { alert('请输入有效的加热温度'); return; }
 
     const dispenseVolume = parseFloat(dispenseVolumeInput.value);
-    if (isNaN(dispenseVolume) || dispenseVolume <= 0) {
-        alert('Please enter a valid dispense volume.');
-        return;
-    }
+    if (isNaN(dispenseVolume) || dispenseVolume <= 0) { alert('请输入有效的转移量'); return; }
 
     try {
         const resp = await fetch(`${API_BASE}/start`, {
@@ -194,7 +211,7 @@ async function startWorkflow() {
         });
         if (!resp.ok) {
             const err = await resp.json();
-            alert(`Failed to start: ${err.message || resp.statusText}`);
+            alert(`启动失败: ${err.message || resp.statusText}`);
             return;
         }
         startPolling();
@@ -211,20 +228,15 @@ async function stopWorkflow() {
     }
 }
 
+// ── Polling ──
+
 function startPolling() {
     if (pollTimer) return;
     pollTimer = setInterval(fetchStatus, 1000);
     fetchStatus();
 }
 
-function stopPolling() {
-    if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-    }
-}
-
-// ── Video streaming: MSE (low-latency) with MJPEG fallback ──
+// ── Video ──
 
 function initVideoStream() {
     videoMjpeg.style.display = 'none';
@@ -249,43 +261,32 @@ function initVideoStream() {
         mpegtsPlayer.load();
         mpegtsPlayer.play().then(() => {
             videoOverlay.classList.add('hidden');
-        }).catch(() => {
-            fallbackToMjpeg();
-        });
-        mpegtsPlayer.on(mpegts.Events.ERROR, () => {
-            fallbackToMjpeg();
-        });
+        }).catch(() => fallbackToMjpeg());
+        mpegtsPlayer.on(mpegts.Events.ERROR, () => fallbackToMjpeg());
     } else {
         fallbackToMjpeg();
     }
 }
 
 function fallbackToMjpeg() {
-    if (mpegtsPlayer) {
-        mpegtsPlayer.destroy();
-        mpegtsPlayer = null;
-    }
+    if (mpegtsPlayer) { mpegtsPlayer.destroy(); mpegtsPlayer = null; }
     videoMse.style.display = 'none';
     videoMjpeg.style.display = 'block';
 }
 
-videoMjpeg.addEventListener('load', () => {
-    videoOverlay.classList.add('hidden');
-});
-
+videoMjpeg.addEventListener('load', () => videoOverlay.classList.add('hidden'));
 videoMjpeg.addEventListener('error', () => {
     videoOverlay.classList.remove('hidden');
-    videoOverlay.querySelector('span').textContent = 'Stream unavailable';
+    videoOverlay.querySelector('span').textContent = '视频流不可用';
 });
+videoMse.addEventListener('playing', () => videoOverlay.classList.add('hidden'));
 
-videoMse.addEventListener('playing', () => {
-    videoOverlay.classList.add('hidden');
-});
+// ── Init ──
 
 btnStart.addEventListener('click', startWorkflow);
 btnStop.addEventListener('click', stopWorkflow);
 
 fetchStatus();
-updateVialGrid(16, 0, 'idle');
+updateVialGrid(36, 0, 'idle');
 startPolling();
 initVideoStream();
