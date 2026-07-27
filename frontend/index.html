@@ -82,6 +82,18 @@
                     <label for="volume-input">Water Volume (ml):</label>
                     <input type="number" id="volume-input" min="1" max="1000" value="100" step="1">
                 </div>
+                <div class="input-group">
+                    <label for="stir-speed-input">Stirrer Speed (RPM):</label>
+                    <input type="number" id="stir-speed-input" min="0" max="1500" value="200" step="10">
+                </div>
+                <div class="input-group">
+                    <label for="heat-temp-input">Heat Temperature (°C):</label>
+                    <input type="number" id="heat-temp-input" min="0" max="340" value="50" step="1">
+                </div>
+                <div class="input-group">
+                    <label for="dispense-volume-input">Pump 2 Dispense Volume (ml):</label>
+                    <input type="number" id="dispense-volume-input" min="1" max="1000" value="10" step="1">
+                </div>
                 <div class="button-group">
                     <button id="btn-start" class="btn btn-primary">Start</button>
                     <button id="btn-stop" class="btn btn-danger" disabled>Stop</button>

@@ -37,7 +37,8 @@ public:
     Workflow(Workflow&&) noexcept;
     Workflow& operator=(Workflow&&) noexcept;
 
-    std::expected<bool, WorkflowError> Start(double volume_ml);
+    std::expected<bool, WorkflowError> Start(double volume_ml, int stir_speed_rpm,
+                                              double heat_temp_c, double dispense_volume_ml);
     std::expected<bool, WorkflowError> Stop();
     [[nodiscard]] WorkflowState GetState() const;
     [[nodiscard]] std::string GetStateString() const;

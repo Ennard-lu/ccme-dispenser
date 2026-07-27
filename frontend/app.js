@@ -3,6 +3,9 @@ const API_BASE = '/api';
 const statusEl = document.getElementById('status-indicator');
 const statusTextEl = document.getElementById('status-text');
 const volumeInput = document.getElementById('volume-input');
+const stirSpeedInput = document.getElementById('stir-speed-input');
+const heatTempInput = document.getElementById('heat-temp-input');
+const dispenseVolumeInput = document.getElementById('dispense-volume-input');
 const btnStart = document.getElementById('btn-start');
 const btnStop = document.getElementById('btn-stop');
 const currentVialEl = document.getElementById('current-vial');
@@ -156,7 +159,25 @@ function updateVialGrid(total, current, state) {
 async function startWorkflow() {
     const volume = parseFloat(volumeInput.value);
     if (isNaN(volume) || volume <= 0) {
-        alert('Please enter a valid volume.');
+        alert('Please enter a valid water volume.');
+        return;
+    }
+
+    const stirSpeed = parseInt(stirSpeedInput.value, 10);
+    if (isNaN(stirSpeed) || stirSpeed < 0) {
+        alert('Please enter a valid stirrer speed.');
+        return;
+    }
+
+    const heatTemp = parseFloat(heatTempInput.value);
+    if (isNaN(heatTemp) || heatTemp < 0) {
+        alert('Please enter a valid heat temperature.');
+        return;
+    }
+
+    const dispenseVolume = parseFloat(dispenseVolumeInput.value);
+    if (isNaN(dispenseVolume) || dispenseVolume <= 0) {
+        alert('Please enter a valid dispense volume.');
         return;
     }
 
@@ -164,7 +185,12 @@ async function startWorkflow() {
         const resp = await fetch(`${API_BASE}/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ volume_ml: volume }),
+            body: JSON.stringify({
+                volume_ml: volume,
+                stir_speed_rpm: stirSpeed,
+                heat_temp_c: heatTemp,
+                dispense_volume_ml: dispenseVolume,
+            }),
         });
         if (!resp.ok) {
             const err = await resp.json();

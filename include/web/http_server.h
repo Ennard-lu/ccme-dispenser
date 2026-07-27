@@ -17,7 +17,15 @@ enum class WebError {
 };
 
 using StatusCallback = std::function<std::string()>;
-using StartCallback = std::function<bool(double volume_ml)>;
+
+struct StartParams {
+    double volume_ml{0.0};
+    int stir_speed_rpm{200};
+    double heat_temp_c{50.0};
+    double dispense_volume_ml{10.0};
+};
+
+using StartCallback = std::function<bool(const StartParams& params)>;
 using StopCallback = std::function<bool()>;
 
 struct ServerConfig {

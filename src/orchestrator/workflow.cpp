@@ -26,8 +26,6 @@ constexpr const char* kFmcBusName = "org.ccme.FMC";
 constexpr const char* kFmcObjectPath = "/org/ccme/fmc";
 constexpr const char* kFmcInterface = "org.ccme.FMC.Control";
 
-constexpr int kStirSpeedRpm = 200;
-constexpr double kHeatTempC = CCME_STIRRER_HEAT_TEMP;
 constexpr int kDissolutionPollMs = 1000;
 
 class DbusProxy {
@@ -218,6 +216,9 @@ private:
 struct Workflow::Impl {
     WorkflowState state{WorkflowState::kIdle};
     double volume_ml{0.0};
+    int stir_speed_rpm{200};
+    double heat_temp_c{50.0};
+    double dispense_volume_ml{10.0};
     int current_vial{0};
     int total_vials{CCME_VIAL_ROWS * CCME_VIAL_COLS};
     bool stop_requested{false};
@@ -244,14 +245,14 @@ struct Workflow::Impl {
             static_cast<int>(volume_ml / CCME_PUMP0_FLOW_RATE * 1000) + 500));
         state = WorkflowState::kHeating;
         std::cerr << "[ORCH] State -> heating\n";
-        if (!dbus.StirrerHeatStart(kHeatTempC)) {
+        if (!dbus.StirrerHeatStart(heat_temp_c)) {
             std::cerr << "[ORCH] StirrerHeatStart failed\n";
             state = WorkflowState::kError;
             return;
         }
         state = WorkflowState::kStirring;
         std::cerr << "[ORCH] State -> stirring\n";
-        if (!dbus.StirrerStart(kStirSpeedRpm)) {
+        if (!dbus.StirrerStart(stir_speed_rpm)) {
             std::cerr << "[ORCH] StirrerStart failed\n";
             state = WorkflowState::kError;
             return;
@@ -287,13 +288,13 @@ struct Workflow::Impl {
 
             state = WorkflowState::kDispensing;
             std::cerr << "[ORCH] State -> dispensing\n";
-            if (!dbus.Pump2Start(volume_ml)) {
+            if (!dbus.Pump2Start(dispense_volume_ml)) {
                 std::cerr << "[ORCH] Pump2Start (dispense) failed\n";
                 state = WorkflowState::kError;
                 return;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(
-                static_cast<int>(volume_ml / CCME_PUMP1_FLOW_RATE * 1000) + 500));
+                static_cast<int>(dispense_volume_ml / CCME_PUMP1_FLOW_RATE * 1000) + 500));
 
             current_vial++;
         }
@@ -318,7 +319,8 @@ Workflow::~Workflow() {
 Workflow::Workflow(Workflow&&) noexcept = default;
 Workflow& Workflow::operator=(Workflow&&) noexcept = default;
 
-std::expected<bool, WorkflowError> Workflow::Start(double volume_ml) {
+std::expected<bool, WorkflowError> Workflow::Start(double volume_ml, int stir_speed_rpm,
+                                                    double heat_temp_c, double dispense_volume_ml) {
     if (impl_->state != WorkflowState::kIdle &&
         impl_->state != WorkflowState::kComplete) {
         std::cerr << "[ORCH] Start rejected: state="
@@ -326,9 +328,13 @@ std::expected<bool, WorkflowError> Workflow::Start(double volume_ml) {
         return std::unexpected(WorkflowError::kAlreadyRunning);
     }
 
-    std::cerr << "[ORCH] Start: volume=" << volume_ml << "ml\n";
+    std::cerr << "[ORCH] Start: volume=" << volume_ml << "ml stir=" << stir_speed_rpm
+              << "RPM temp=" << heat_temp_c << "C dispense=" << dispense_volume_ml << "ml\n";
 
     impl_->volume_ml = volume_ml;
+    impl_->stir_speed_rpm = stir_speed_rpm;
+    impl_->heat_temp_c = heat_temp_c;
+    impl_->dispense_volume_ml = dispense_volume_ml;
     impl_->current_vial = 0;
     impl_->stop_requested = false;
 

@@ -85,9 +85,16 @@ std::expected<bool, WebError> HttpServer::Start() {
         nlohmann::json j;
         try {
             auto body = nlohmann::json::parse(req.body);
-            double volume = body.value("volume_ml", 0.0);
-            std::cerr << "[WEB] POST /api/start volume=" << volume << "ml\n";
-            if (impl_->start_cb && impl_->start_cb(volume)) {
+            StartParams params;
+            params.volume_ml = body.value("volume_ml", 0.0);
+            params.stir_speed_rpm = body.value("stir_speed_rpm", 200);
+            params.heat_temp_c = body.value("heat_temp_c", 50.0);
+            params.dispense_volume_ml = body.value("dispense_volume_ml", 10.0);
+            std::cerr << "[WEB] POST /api/start volume=" << params.volume_ml
+                      << "ml stir=" << params.stir_speed_rpm
+                      << "RPM temp=" << params.heat_temp_c
+                      << "C dispense=" << params.dispense_volume_ml << "ml\n";
+            if (impl_->start_cb && impl_->start_cb(params)) {
                 j["success"] = true;
                 std::cerr << "[WEB] Start ok\n";
             } else {

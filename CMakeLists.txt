@@ -35,7 +35,6 @@ set(CCME_PUMP1_PWM_PERIOD_US 60000 CACHE STRING "Pump 1 PWM period (ns)")
 # Stirrer options
 set(CCME_STIRRER_SERIAL_PORT "/dev/ttyACM0" CACHE STRING "Serial port device path")
 set(CCME_STIRRER_BAUD_RATE 9600 CACHE STRING "Serial port baud rate")
-set(CCME_STIRRER_HEAT_TEMP 50.0 CACHE STRING "Default heating temperature (°C)")
 
 # Camera options
 set(CCME_CAMERA_STREAM_URL "tcp://127.0.0.1:7778" CACHE STRING "GStreamer video pipeline")
@@ -53,8 +52,8 @@ set(CCME_WEB_LISTEN_ADDRESS "0.0.0.0" CACHE STRING "HTTP server listen address")
 # Vial matrix options
 set(CCME_VIAL_ROWS 6 CACHE STRING "Number of vial rows")
 set(CCME_VIAL_COLS 6 CACHE STRING "Number of vial columns")
-set(CCME_VIAL_SPACING_X -500.0 CACHE STRING "X-axis spacing between vials (mm)")
-set(CCME_VIAL_SPACING_Y -500.0 CACHE STRING "Y-axis spacing between vials (mm)")
+set(CCME_VIAL_SPACING_X -709.92 CACHE STRING "X-axis spacing between vials")
+set(CCME_VIAL_SPACING_Y -709.92 CACHE STRING "Y-axis spacing between vials")
 set(CCME_VIAL_ORIGIN_X 0.0 CACHE STRING "X coordinate of first vial (mm)")
 set(CCME_VIAL_ORIGIN_Y 0.0 CACHE STRING "Y coordinate of first vial (mm)")
 set(CCME_VIAL_ORIGIN_Z 0.0 CACHE STRING "Z coordinate of first vial (mm)")
@@ -110,7 +109,6 @@ add_compile_definitions(
 
     CCME_STIRRER_SERIAL_PORT="${CCME_STIRRER_SERIAL_PORT}"
     CCME_STIRRER_BAUD_RATE=${CCME_STIRRER_BAUD_RATE}
-    CCME_STIRRER_HEAT_TEMP=${CCME_STIRRER_HEAT_TEMP}
 
     CCME_CAMERA_STREAM_URL="${CCME_CAMERA_STREAM_URL}"
     CCME_CAMERA_CHECK_INTERVAL_MS=${CCME_CAMERA_CHECK_INTERVAL_MS}

@@ -20,9 +20,14 @@ int main() {
         auto object = sdbus::createObject(*connection, sdbus::ObjectPath{kObjectPath});
 
         object->addVTable(
-            sdbus::registerMethod("Start").implementedAs([&workflow](double volume_ml) -> bool {
-                std::cerr << "[ORCH] D-Bus: Start(" << volume_ml << ")\n";
-                auto result = workflow->Start(volume_ml);
+            sdbus::registerMethod("Start").implementedAs(
+                [&workflow](double volume_ml, int stir_speed_rpm,
+                            double heat_temp_c, double dispense_volume_ml) -> bool {
+                std::cerr << "[ORCH] D-Bus: Start(" << volume_ml << ", "
+                          << stir_speed_rpm << ", " << heat_temp_c
+                          << ", " << dispense_volume_ml << ")\n";
+                auto result = workflow->Start(volume_ml, stir_speed_rpm,
+                                              heat_temp_c, dispense_volume_ml);
                 if (!result) {
                     std::cerr << "[ORCH] D-Bus: Start failed\n";
                     throw sdbus::Error{sdbus::Error::Name{kInterfaceName}, "Workflow start failed"};

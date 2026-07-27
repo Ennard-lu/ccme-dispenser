@@ -78,8 +78,11 @@ int main() {
             return cached_status.dump();
         });
 
-        server->SetStartCallback([&](double volume_ml) -> bool {
-            std::cerr << "[WEB] Start callback: volume=" << volume_ml << "ml\n";
+        server->SetStartCallback([&](const ccme::web::StartParams& params) -> bool {
+            std::cerr << "[WEB] Start callback: volume=" << params.volume_ml
+                      << "ml stir=" << params.stir_speed_rpm
+                      << "RPM temp=" << params.heat_temp_c
+                      << "C dispense=" << params.dispense_volume_ml << "ml\n";
             try {
                 auto proxy = sdbus::createProxy(
                     *connection,
@@ -87,7 +90,10 @@ int main() {
                     sdbus::ObjectPath{kOrchestratorPath});
                 proxy->callMethod("Start")
                     .onInterface(kOrchestratorIface)
-                    .withArguments(volume_ml);
+                    .withArguments(params.volume_ml,
+                                   params.stir_speed_rpm,
+                                   params.heat_temp_c,
+                                   params.dispense_volume_ml);
                 std::cerr << "[WEB] Start forwarded to orchestrator\n";
                 return true;
             } catch (const std::exception& e) {
