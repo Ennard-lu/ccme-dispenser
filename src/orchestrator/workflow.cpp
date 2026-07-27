@@ -183,7 +183,7 @@ public:
             auto proxy = sdbus::createProxy(*conn_,
                 sdbus::ServiceName{kFmcBusName},
                 sdbus::ObjectPath{kFmcObjectPath});
-            proxy->callMethod("Home").onInterface(kFmcInterface);
+            proxy->callMethod("Home").onInterface(kFmcInterface).withTimeout(60000000);
             std::cerr << "[ORCH] Home ok\n";
             return true;
         } catch (const std::exception& e) {
