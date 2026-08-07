@@ -199,7 +199,7 @@ install(FILES ${CMAKE_SOURCE_DIR}/dbus/org.ccme.conf
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/frontend/
     DESTINATION ${CCME_INSTALL_FRONTEND_DIR}
     COMPONENT frontend
-    FILES_MATCHING PATTERN "*.html" PATTERN "*.css" PATTERN "*.js"
+    FILES_MATCHING PATTERN "*.html" PATTERN "*.css" PATTERN "*.js" PATTERN "*.png"
 )
 
 install(FILES ${CMAKE_SOURCE_DIR}/nginx/nginx.conf
