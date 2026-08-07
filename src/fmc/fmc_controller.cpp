@@ -186,7 +186,7 @@ std::expected<bool, FmcError> FmcController::MoveToVial(int index) {
     }
 
     int row = index / impl_->vial_cols;
-    int col = index % impl_->vial_cols;
+    int col = row % 2 == 0 ? index % impl_->vial_cols : impl_->vial_cols - index % impl_->vial_cols;
     std::cerr << "[FMC] MoveToVial index=" << index << " (row=" << row << " col=" << col << ")\n";
     impl_->UpZ();
     if (!impl_->WaitForStop()) {
