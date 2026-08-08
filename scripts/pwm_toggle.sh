@@ -112,6 +112,7 @@ if [ "$PERIOD" -le `cat ${PWM_DIR}/duty_cycle` ]; then
     if ! echo "$PERIOD" > "$PWM_DIR/period" 2>/dev/null; then
         echo "错误: 写入 period 失败" >&2
         exit 1
+    fi
 else
 # 写入 period 与 duty_cycle (必须在 enable 之前完成)
     if ! echo "$PERIOD" > "$PWM_DIR/period" 2>/dev/null; then
