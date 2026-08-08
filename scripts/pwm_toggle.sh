@@ -104,16 +104,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [ "$PERIOD" -le `cat ${PWM_DIR}/duty_cycle` ]; then
+    if ! echo "$DUTY" > "$PWM_DIR/duty_cycle" 2>/dev/null; then
+        echo "错误: 写入 duty_cycle 失败" >&2
+        exit 1
+    fi
+    if ! echo "$PERIOD" > "$PWM_DIR/period" 2>/dev/null; then
+        echo "错误: 写入 period 失败" >&2
+        exit 1
+else
 # 写入 period 与 duty_cycle (必须在 enable 之前完成)
-if ! echo "$PERIOD" > "$PWM_DIR/period" 2>/dev/null; then
-    echo "错误: 写入 period 失败" >&2
-    exit 1
+    if ! echo "$PERIOD" > "$PWM_DIR/period" 2>/dev/null; then
+        echo "错误: 写入 period 失败" >&2
+        exit 1
+    fi
+    if ! echo "$DUTY" > "$PWM_DIR/duty_cycle" 2>/dev/null; then
+        echo "错误: 写入 duty_cycle 失败" >&2
+        exit 1
+    fi
 fi
-if ! echo "$DUTY" > "$PWM_DIR/duty_cycle" 2>/dev/null; then
-    echo "错误: 写入 duty_cycle 失败" >&2
-    exit 1
-fi
-
 echo "使用 PWM: $PWM_DIR (period=${PERIOD}ns, duty_cycle=${DUTY}ns)"
 
 while true; do
