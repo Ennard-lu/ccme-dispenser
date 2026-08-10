@@ -44,6 +44,24 @@ document.querySelectorAll('.view-btn').forEach(btn => {
     });
 });
 
+// ── Region focus ──
+
+const regions = Array.from(document.querySelectorAll('[data-region]'));
+let focusedRegion = null;
+
+function setFocusedRegion(region) {
+    if (focusedRegion === region) return;
+    regions.forEach(r => r.classList.toggle('region-focused', r === region));
+    focusedRegion = region;
+}
+
+document.addEventListener('pointerdown', (e) => {
+    const region = e.target.closest('[data-region]');
+    if (region) setFocusedRegion(region);
+});
+
+setFocusedRegion(document.querySelector('[data-region="left"]'));
+
 // ── Status ──
 
 function setStatus(state) {

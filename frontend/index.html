@@ -14,13 +14,12 @@
                 <h1>CCME Dispenser</h1>
             </div>
             <div id="status-indicator" class="status-badge status-idle">
-                <span class="status-dot"></span>
                 <span id="status-text">空闲</span>
             </div>
         </header>
 
         <div class="main-area">
-            <div class="left-panel">
+            <div class="left-panel" data-region="left">
                 <div class="left-header">
                     <button class="view-btn active" data-view="monitor">视频监控</button>
                     <button class="view-btn" data-view="vials">样品矩阵</button>
@@ -49,14 +48,13 @@
             </div>
 
             <div class="right-panel">
-                <div class="right-top">
+                <div class="right-top" data-region="params">
                     <div class="panel-header">
-                        <div class="panel-header-icon"></div>
                         <span class="panel-header-title">参数控制</span>
                     </div>
                     <div class="panel-body">
                         <div class="params-section">
-                            <h3><span class="section-dot"></span> 基本选项</h3>
+                            <h3>基本选项</h3>
                             <div class="params-grid">
                                 <div class="input-group">
                                     <label for="volume-input">注水量 (ml)</label>
@@ -69,7 +67,7 @@
                             </div>
                         </div>
                         <div class="params-section">
-                            <h3><span class="section-dot advanced"></span> 高级选项</h3>
+                            <h3>高级选项</h3>
                             <div class="params-grid">
                                 <div class="input-group">
                                     <label for="stir-speed-input">搅拌转速 (RPM)</label>
@@ -98,9 +96,8 @@
                     </div>
                 </div>
 
-                <div class="right-bottom">
+                <div class="right-bottom" data-region="modules">
                     <div class="panel-header">
-                        <div class="panel-header-icon"></div>
                         <span class="panel-header-title">模块状态</span>
                     </div>
                     <div class="panel-body">

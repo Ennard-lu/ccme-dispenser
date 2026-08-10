@@ -29,7 +29,7 @@ html, body {
 }
 
 body {
-    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-family: "Times New Roman", "SimSun", serif;
     font-size: 13px;
     background: var(--white);
     color: var(--black);
@@ -44,16 +44,18 @@ body {
     overflow: hidden;
 }
 
-/* ── Header ── */
+/* ── Header (title bar) ── */
 
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 20px;
+    height: 60px;
+    padding: 0 20px;
     background: var(--red);
     color: var(--white);
     flex-shrink: 0;
+    font-family: "Arial", "SimSun", sans-serif;
 }
 
 .header-left {
@@ -69,8 +71,9 @@ header {
 }
 
 header h1 {
-    font-size: 15px;
+    font-size: 22px;
     font-weight: 600;
+    line-height: 45px;
     color: var(--white);
 }
 
@@ -78,27 +81,16 @@ header h1 {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 12px;
-    font-size: 12px;
+    padding: 0 12px;
+    font-size: 16px;
     font-weight: 400;
-}
-
-.status-dot {
-    width: 7px;
-    height: 7px;
+    line-height: 45px;
 }
 
 .status-idle { background: rgba(255,255,255,0.2); color: var(--white); }
-.status-idle .status-dot { background: var(--white); }
-
 .status-running { background: var(--white); color: var(--red); }
-.status-running .status-dot { background: var(--red); animation: pulse 1.5s infinite; }
-
 .status-error { background: var(--red); color: var(--white); }
-.status-error .status-dot { background: var(--white); }
-
 .status-complete { background: rgba(255,255,255,0.25); color: var(--white); }
-.status-complete .status-dot { background: var(--white); }
 
 @keyframes pulse {
     0%, 100% { opacity: 1; }
@@ -111,10 +103,36 @@ header h1 {
     flex: 1;
     display: grid;
     grid-template-columns: 2fr 1fr;
-    gap: 1px;
-    background: var(--gray-20);
     min-height: 0;
     overflow: hidden;
+}
+
+/* ── Regions (focus highlight) ── */
+
+.left-panel,
+.right-top,
+.right-bottom {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.region-focused {
+    background: var(--red);
+    color: var(--white);
+}
+
+.left-panel:not(.region-focused) {
+    background: var(--white);
+    color: var(--black);
+}
+
+.right-top:not(.region-focused) {
+    background: var(--white);
+    color: var(--black);
+}
+
+.right-bottom:not(.region-focused) {
+    background: var(--white);
+    color: var(--black);
 }
 
 /* ── Left Panel ── */
@@ -124,13 +142,10 @@ header h1 {
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
-    background: var(--white);
 }
 
 .left-header {
     display: flex;
-    gap: 0;
-    border-bottom: 2px solid var(--gray-20);
     flex-shrink: 0;
 }
 
@@ -138,8 +153,6 @@ header h1 {
     flex: 1;
     padding: 10px 0;
     border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
     background: transparent;
     color: var(--gray-60);
     font-size: 13px;
@@ -149,16 +162,19 @@ header h1 {
 }
 
 .view-btn:hover {
-    color: var(--black);
-    background: var(--red-10);
+    color: var(--red);
+    background: var(--red-20);
 }
 
 .view-btn.active {
     color: var(--red);
-    border-bottom-color: var(--red);
+    background: var(--red-20);
     font-weight: 600;
-    background: var(--red-10);
 }
+
+.region-focused .view-btn { color: rgba(255,255,255,0.75); }
+.region-focused .view-btn:hover { color: var(--white); background: rgba(255,255,255,0.15); }
+.region-focused .view-btn.active { color: var(--white); background: rgba(255,255,255,0.15); font-weight: 600; }
 
 .left-content {
     flex: 1;
@@ -183,7 +199,7 @@ header h1 {
     position: relative;
     flex: 1;
     min-height: 0;
-    background: var(--red-10);
+    background: var(--gray-10);
     overflow: hidden;
 }
 
@@ -201,13 +217,16 @@ header h1 {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--red-60);
+    color: var(--gray-60);
     font-size: 13px;
-    background: var(--red-10);
+    background: var(--gray-10);
     pointer-events: none;
 }
 
 .video-overlay.hidden { display: none; }
+
+.region-focused .video-container { background: var(--red); }
+.region-focused .video-overlay { background: var(--red); color: var(--white); }
 
 /* ── Vial Grid ── */
 
@@ -253,7 +272,6 @@ header h1 {
     gap: 16px;
     justify-content: center;
     padding-top: 10px;
-    border-top: 1px solid var(--gray-20);
     flex-shrink: 0;
 }
 
@@ -264,6 +282,8 @@ header h1 {
     font-size: 12px;
     color: var(--gray-60);
 }
+
+.region-focused .legend-item { color: var(--white); }
 
 .legend-dot {
     width: 10px;
@@ -281,7 +301,6 @@ header h1 {
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
-    background: var(--white);
 }
 
 .right-top {
@@ -298,41 +317,21 @@ header h1 {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-top: 1px solid var(--gray-20);
 }
 
-/* ── Panel Headers (Win10 style: gray bg + accent bar) ── */
+/* ── Panel Headers ── */
 
 .panel-header {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    background: var(--gray-10);
-    border-bottom: 1px solid var(--gray-20);
-    flex-shrink: 0;
-}
-
-.right-top .panel-header {
-    background: var(--red-10);
-    border-bottom-color: var(--red-20);
-}
-
-.panel-header-icon {
-    width: 3px;
-    height: 14px;
-    background: var(--red);
     flex-shrink: 0;
 }
 
 .panel-header-title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--gray-80);
-}
-
-.right-top .panel-header-title {
-    color: var(--red);
 }
 
 .panel-body {
@@ -353,9 +352,6 @@ header h1 {
 }
 
 .params-section h3 {
-    display: flex;
-    align-items: center;
-    gap: 8px;
     font-size: 12px;
     font-weight: 600;
     color: var(--gray-60);
@@ -364,14 +360,7 @@ header h1 {
     letter-spacing: 0.5px;
 }
 
-.section-dot {
-    width: 3px;
-    height: 10px;
-    flex-shrink: 0;
-}
-
-.section-dot { background: var(--red); }
-.section-dot.advanced { background: var(--red-40); }
+.region-focused .params-section h3 { color: var(--white); }
 
 .params-grid {
     display: grid;
@@ -386,6 +375,8 @@ header h1 {
     color: var(--gray-60);
     font-weight: 400;
 }
+
+.region-focused .input-group label { color: var(--white); }
 
 .input-group input {
     width: 100%;
@@ -445,7 +436,6 @@ header h1 {
 /* ── Progress ── */
 
 .progress-info {
-    border-top: 1px solid var(--gray-20);
     padding-top: 8px;
     flex-shrink: 0;
     margin-top: 12px;
@@ -459,10 +449,14 @@ header h1 {
     color: var(--gray-60);
 }
 
+.region-focused .info-row { color: var(--white); }
+
 .info-value {
     font-weight: 600;
     color: var(--black);
 }
+
+.region-focused .info-value { color: var(--white); }
 
 /* ── Module Status ── */
 
@@ -478,11 +472,6 @@ header h1 {
     gap: 10px;
     padding: 8px 10px;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--gray-20);
-}
-
-.module-row:last-child {
-    border-bottom: none;
 }
 
 .module-row.active {
@@ -521,7 +510,7 @@ header h1 {
 
 .module-row.active .module-status {
     color: var(--red);
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .module-indicator {
@@ -533,6 +522,12 @@ header h1 {
 .module-indicator.offline { background: var(--gray-30); }
 .module-indicator.online { background: var(--red); }
 .module-indicator.active { background: var(--red); animation: pulse 1.5s infinite; }
+
+.right-bottom.region-focused .module-name { color: var(--white); }
+.right-bottom.region-focused .module-status { color: rgba(255,255,255,0.85); }
+.right-bottom.region-focused .module-row.active { background: rgba(255,255,255,0.18); }
+.right-bottom.region-focused .module-row.active .module-status { color: var(--white); font-weight: 600; }
+.right-bottom.region-focused .module-indicator.offline { background: rgba(255,255,255,0.4); }
 
 /* ── Responsive ── */
 
@@ -546,19 +541,11 @@ header h1 {
     .right-top, .right-bottom {
         flex: 1;
     }
-    .right-bottom {
-        border-top: none;
-        border-left: 1px solid var(--gray-20);
-    }
 }
 
 @media (max-width: 600px) {
     .right-panel {
         flex-direction: column;
-    }
-    .right-bottom {
-        border-left: none;
-        border-top: 1px solid var(--gray-20);
     }
     .params-grid {
         grid-template-columns: 1fr;
