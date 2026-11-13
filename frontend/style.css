@@ -168,13 +168,8 @@ header h1 {
 
 .view-btn.active {
     color: var(--red);
-    background: var(--red-20);
     font-weight: 600;
 }
-
-.region-focused .view-btn { color: rgba(255,255,255,0.75); }
-.region-focused .view-btn:hover { color: var(--white); background: rgba(255,255,255,0.15); }
-.region-focused .view-btn.active { color: var(--white); background: rgba(255,255,255,0.15); font-weight: 600; }
 
 .left-content {
     flex: 1;
@@ -246,13 +241,23 @@ header h1 {
 }
 
 .vial-cell {
+    container-type: size;
     border: 1px solid var(--gray-20);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    font-weight: 400;
     color: var(--gray-30);
+}
+
+.vial-cell-num {
+    width: 100%;
+    height: 85%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 68cqh;
+    font-weight: 400;
+    line-height: 1;
 }
 
 .vial-cell.filled {

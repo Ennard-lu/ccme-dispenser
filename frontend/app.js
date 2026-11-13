@@ -189,7 +189,10 @@ function updateVialGrid(total, current, state) {
     for (let i = 0; i < total; i++) {
         const cell = document.createElement('div');
         cell.className = 'vial-cell';
-        cell.textContent = i + 1;
+        const num = document.createElement('span');
+        num.className = 'vial-cell-num';
+        num.textContent = i + 1;
+        cell.appendChild(num);
 
         if (i < current) {
             cell.classList.add('filled');
