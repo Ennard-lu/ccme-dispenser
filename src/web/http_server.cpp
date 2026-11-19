@@ -21,12 +21,46 @@
 
 namespace ccme::web {
 
+namespace {
+
+[[nodiscard]] int HttpStatusForError(const ApiError& error) {
+    if (error.code == "already_running" || error.code == "not_running" ||
+        error.code == "not_in_error") {
+        return 409;
+    }
+    if (error.code == "orchestrator_unavailable" ||
+        error.code == "service_unavailable") {
+        return 503;
+    }
+    if (error.code == "invalid_request") {
+        return 400;
+    }
+    return 500;
+}
+
+void SetJsonError(httplib::Response& res, const ApiError& error) {
+    std::cerr << "[WEB] API error [" << error.code << "]: "
+              << error.message << "\n";
+    nlohmann::json json;
+    json["success"] = false;
+    json["error"] = {
+        {"code", error.code},
+        {"message", error.message},
+        {"hint", error.hint},
+    };
+    res.status = HttpStatusForError(error);
+    res.set_content(json.dump(), "application/json");
+}
+
+}  // namespace
+
 struct HttpServer::Impl {
     ServerConfig config;
     bool running{false};
     StatusCallback status_cb;
     StartCallback start_cb;
     StopCallback stop_cb;
+    ResetCallback reset_cb;
     std::unique_ptr<httplib::Server> svr;
     std::thread server_thread;
 
@@ -57,6 +91,10 @@ void HttpServer::SetStopCallback(StopCallback cb) {
     impl_->stop_cb = std::move(cb);
 }
 
+void HttpServer::SetResetCallback(ResetCallback cb) {
+    impl_->reset_cb = std::move(cb);
+}
+
 std::expected<bool, WebError> HttpServer::Start() {
     if (impl_->running) {
         return std::unexpected(WebError::kRunning);
@@ -82,47 +120,85 @@ std::expected<bool, WebError> HttpServer::Start() {
 
     impl_->svr->Post("/api/start", [this](const httplib::Request& req,
                                            httplib::Response& res) {
-        nlohmann::json j;
+        StartParams params;
         try {
             auto body = nlohmann::json::parse(req.body);
-            StartParams params;
             params.volume_ml = body.value("volume_ml", 0.0);
             params.stir_speed_rpm = body.value("stir_speed_rpm", 200);
             params.heat_temp_c = body.value("heat_temp_c", 50.0);
             params.dispense_volume_ml = body.value("dispense_volume_ml", 10.0);
-            std::cerr << "[WEB] POST /api/start volume=" << params.volume_ml
-                      << "ml stir=" << params.stir_speed_rpm
-                      << "RPM temp=" << params.heat_temp_c
-                      << "C dispense=" << params.dispense_volume_ml << "ml\n";
-            if (impl_->start_cb && impl_->start_cb(params)) {
-                j["success"] = true;
-                std::cerr << "[WEB] Start ok\n";
-            } else {
-                j["success"] = false;
-                j["error"] = "start failed";
-                std::cerr << "[WEB] Start failed\n";
-            }
         } catch (const std::exception& e) {
-            j["success"] = false;
-            j["error"] = e.what();
-            std::cerr << "[WEB] Start parse error: " << e.what() << "\n";
+            SetJsonError(res, ApiError{
+                "invalid_request",
+                std::string{"请求参数解析失败: "} + e.what(),
+                "检查 JSON 字段和类型",
+            });
+            return;
         }
-        res.set_content(j.dump(), "application/json");
+
+        std::cerr << "[WEB] POST /api/start volume=" << params.volume_ml
+                  << "ml stir=" << params.stir_speed_rpm
+                  << "RPM temp=" << params.heat_temp_c
+                  << "C dispense=" << params.dispense_volume_ml << "ml\n";
+
+        if (!impl_->start_cb) {
+            SetJsonError(res, ApiError{
+                "service_unavailable",
+                "启动回调未注册",
+                "检查 ccme-web 配置",
+            });
+            return;
+        }
+
+        auto result = impl_->start_cb(params);
+        if (!result) {
+            SetJsonError(res, result.error());
+            return;
+        }
+
+        std::cerr << "[WEB] Start ok\n";
+        res.status = 200;
+        res.set_content(R"({"success":true})", "application/json");
     });
 
     impl_->svr->Post("/api/stop", [this](const httplib::Request&,
                                           httplib::Response& res) {
         std::cerr << "[WEB] POST /api/stop\n";
-        nlohmann::json j;
-        if (impl_->stop_cb && impl_->stop_cb()) {
-            j["success"] = true;
-            std::cerr << "[WEB] Stop ok\n";
-        } else {
-            j["success"] = false;
-            j["error"] = "stop failed";
-            std::cerr << "[WEB] Stop failed\n";
+        if (!impl_->stop_cb) {
+            SetJsonError(res, ApiError{
+                "service_unavailable", "停止回调未注册", "检查 ccme-web 配置"});
+            return;
         }
-        res.set_content(j.dump(), "application/json");
+
+        auto result = impl_->stop_cb();
+        if (!result) {
+            SetJsonError(res, result.error());
+            return;
+        }
+
+        std::cerr << "[WEB] Stop ok\n";
+        res.status = 200;
+        res.set_content(R"({"success":true})", "application/json");
+    });
+
+    impl_->svr->Post("/api/reset", [this](const httplib::Request&,
+                                           httplib::Response& res) {
+        std::cerr << "[WEB] POST /api/reset\n";
+        if (!impl_->reset_cb) {
+            SetJsonError(res, ApiError{
+                "service_unavailable", "重置回调未注册", "检查 ccme-web 配置"});
+            return;
+        }
+
+        auto result = impl_->reset_cb();
+        if (!result) {
+            SetJsonError(res, result.error());
+            return;
+        }
+
+        std::cerr << "[WEB] Reset ok\n";
+        res.status = 200;
+        res.set_content(R"({"success":true})", "application/json");
     });
 
 #ifdef CCME_HAS_OPENCV

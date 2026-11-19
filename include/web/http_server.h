@@ -16,6 +16,12 @@ enum class WebError {
     kNotRunning,
 };
 
+struct ApiError {
+    std::string code;
+    std::string message;
+    std::string hint;
+};
+
 using StatusCallback = std::function<std::string()>;
 
 struct StartParams {
@@ -25,8 +31,10 @@ struct StartParams {
     double dispense_volume_ml{10.0};
 };
 
-using StartCallback = std::function<bool(const StartParams& params)>;
-using StopCallback = std::function<bool()>;
+using StartCallback =
+    std::function<std::expected<void, ApiError>(const StartParams& params)>;
+using StopCallback = std::function<std::expected<void, ApiError>()>;
+using ResetCallback = std::function<std::expected<void, ApiError>()>;
 
 struct ServerConfig {
     std::string listen_address{"0.0.0.0"};
@@ -48,6 +56,7 @@ public:
     void SetStatusCallback(StatusCallback cb);
     void SetStartCallback(StartCallback cb);
     void SetStopCallback(StopCallback cb);
+    void SetResetCallback(ResetCallback cb);
 
     std::expected<bool, WebError> Start();
     std::expected<bool, WebError> Stop();

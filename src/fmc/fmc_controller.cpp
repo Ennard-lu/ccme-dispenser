@@ -141,6 +141,10 @@ void FmcController::Disconnect() {
     }
 }
 
+bool FmcController::IsConnected() const {
+    return impl_->connected;
+}
+
 std::expected<bool, FmcError> FmcController::Home() {
     if (!impl_->connected) {
         std::cerr << "[FMC] Home rejected: not connected\n";

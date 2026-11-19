@@ -16,6 +16,35 @@ const videoMse = document.getElementById('video-mse');
 const videoMjpeg = document.getElementById('video-mjpeg');
 const videoOverlay = document.getElementById('video-overlay');
 const stirrerDetailEl = document.getElementById('stirrer-detail');
+const errorBanner = document.getElementById('error-banner');
+const errorTitleEl = document.getElementById('error-title');
+const errorMessageEl = document.getElementById('error-message');
+const errorHintEl = document.getElementById('error-hint');
+const errorTimeEl = document.getElementById('error-time');
+const btnReset = document.getElementById('btn-reset');
+
+const ERROR_TITLES = {
+    ai_not_configured: '视觉模型未配置',
+    camera_unavailable: '视觉服务不可用',
+    camera_stream_unavailable: '摄像头不可用',
+    fmc_unavailable: '三轴控制器离线',
+    fmc_home_failed: '三轴回零失败',
+    fmc_move_failed: '三轴移动失败',
+    pump_start_failed: '注水泵故障',
+    dispense_pump_failed: '分装泵故障',
+    heater_start_failed: '加热故障',
+    stirrer_start_failed: '搅拌故障',
+    dissolution_timeout: '溶解检测超时',
+    vision_check_failed: '视觉检测失败',
+    orchestrator_unavailable: '编排器离线',
+    already_running: '流程已在运行',
+    not_running: '流程未运行',
+    not_in_error: '当前不可重置',
+    start_failed: '启动失败',
+    stop_failed: '停止失败',
+    reset_failed: '重置失败',
+    invalid_request: '请求参数错误',
+};
 
 const STATE_MAP = {
     idle: '空闲',
@@ -95,6 +124,7 @@ function updateModuleStatus(id, running, label) {
     const sEl = card.querySelector('.module-status');
     const indicator = card.querySelector('.module-indicator');
 
+    card.title = '';
     if (running) {
         card.classList.add('active');
         sEl.textContent = label || '运行中';
@@ -106,11 +136,37 @@ function updateModuleStatus(id, running, label) {
     }
 }
 
-function updateModuleOffline(id) {
+function updateModuleOffline(id, error) {
     const card = document.getElementById(id);
     card.querySelector('.module-status').textContent = '离线';
     card.classList.remove('active');
     card.querySelector('.module-indicator').className = 'module-indicator offline';
+    card.title = error || '';
+}
+
+// ── Error banner ──
+
+function showError(error) {
+    if (!error) {
+        errorBanner.classList.add('hidden');
+        return;
+    }
+
+    errorTitleEl.textContent = ERROR_TITLES[error.code] || '系统错误';
+    errorMessageEl.textContent = error.message || '未知错误';
+    errorHintEl.textContent = error.hint ? `建议：${error.hint}` : '';
+    errorTimeEl.textContent = error.timestamp_ms
+        ? new Date(error.timestamp_ms).toLocaleTimeString()
+        : '';
+    errorBanner.classList.remove('hidden');
+}
+
+function clearError() {
+    errorBanner.classList.add('hidden');
+}
+
+function makeClientError(code, message, hint) {
+    return { code, message, hint, timestamp_ms: Date.now() };
 }
 
 // ── Fetch status ──
@@ -118,7 +174,13 @@ function updateModuleOffline(id) {
 async function fetchStatus() {
     try {
         const resp = await fetch(`${API_BASE}/status`);
-        if (!resp.ok) return;
+        if (!resp.ok) {
+            showError(makeClientError(
+                'status_unavailable',
+                `状态接口返回 HTTP ${resp.status}`,
+                '检查 ccme-web 和 nginx 状态'));
+            return;
+        }
         const data = await resp.json();
 
         setStatus(data.state);
@@ -126,54 +188,72 @@ async function fetchStatus() {
         totalVialsEl.textContent = data.total_vials || 36;
         currentStateEl.textContent = STATE_MAP[data.state] || data.state || '空闲';
 
+        if (data.error && data.error.active !== false) {
+            showError(data.error);
+        } else if (data.state === 'error') {
+            showError(makeClientError(
+                'unknown_error', '流程发生未知错误', '查看后端日志'));
+        } else {
+            clearError();
+        }
+
         if (data.modules) {
             const m = data.modules;
 
-            if (m.pump) {
+            if (m.pump && m.pump.online !== false) {
                 updateModuleStatus('mod-pump', m.pump.running,
                     m.pump.running ? '运行中' : '关闭');
             } else {
-                updateModuleOffline('mod-pump');
+                updateModuleOffline('mod-pump', m.pump && m.pump.error);
             }
 
-            if (m.pump2) {
+            if (m.pump2 && m.pump2.online !== false) {
                 updateModuleStatus('mod-pump2', m.pump2.running,
                     m.pump2.running ? '运行中' : '关闭');
             } else {
-                updateModuleOffline('mod-pump2');
+                updateModuleOffline('mod-pump2', m.pump2 && m.pump2.error);
             }
 
-            if (m.stirrer) {
+            if (m.stirrer && m.stirrer.online !== false) {
                 const s = m.stirrer;
                 const parts = [];
                 if (s.stirring) parts.push(`${s.speed} RPM`);
-                if (s.heating) parts.push(`${s.set_temp.toFixed(1)}°C / ${s.temp.toFixed(1)}°C`);
-                else if (s.temp > 0) parts.push(`${s.temp.toFixed(1)}°C`);
+                if (s.heating) {
+                    parts.push(`${Number(s.set_temp).toFixed(1)}°C / ${Number(s.temp).toFixed(1)}°C`);
+                } else if (Number(s.temp) > 0) {
+                    parts.push(`${Number(s.temp).toFixed(1)}°C`);
+                }
                 const label = s.stirring || s.heating ? parts.join(' | ') : '关闭';
                 updateModuleStatus('mod-stirrer', s.stirring || s.heating, label);
+                document.getElementById('mod-stirrer').title = s.error || '';
                 stirrerDetailEl.textContent = '';
             } else {
-                updateModuleOffline('mod-stirrer');
+                updateModuleOffline('mod-stirrer', m.stirrer && m.stirrer.error);
                 stirrerDetailEl.textContent = '';
             }
 
-            if (m.camera) {
+            if (m.camera && m.camera.online !== false) {
                 if (!m.camera.connected) {
-                    updateModuleOffline('mod-camera');
+                    updateModuleOffline('mod-camera', m.camera.error);
                 } else {
                     const camLabel = m.camera.ai_configured ? '已连接' : 'AI未配置';
                     updateModuleStatus('mod-camera', true, camLabel);
+                    document.getElementById('mod-camera').title = m.camera.error || '';
                 }
             } else {
-                updateModuleOffline('mod-camera');
+                updateModuleOffline('mod-camera', m.camera && m.camera.error);
             }
 
-            if (m.fmc) {
-                const fmcLabel = m.fmc.moving ? '移动中'
-                    : m.fmc.connected ? '就绪' : '离线';
-                updateModuleStatus('mod-fmc', m.fmc.connected || m.fmc.moving, fmcLabel);
+            if (m.fmc && m.fmc.online !== false) {
+                if (!m.fmc.connected && !m.fmc.moving) {
+                    updateModuleOffline('mod-fmc', m.fmc.error || 'FMC 控制器未连接');
+                } else {
+                    const fmcLabel = m.fmc.moving ? '移动中' : '就绪';
+                    updateModuleStatus('mod-fmc', m.fmc.connected || m.fmc.moving, fmcLabel);
+                    document.getElementById('mod-fmc').title = m.fmc.error || '';
+                }
             } else {
-                updateModuleOffline('mod-fmc');
+                updateModuleOffline('mod-fmc', m.fmc && m.fmc.error);
             }
         }
 
@@ -181,6 +261,10 @@ async function fetchStatus() {
             data.state || 'idle');
     } catch (e) {
         console.error('Status fetch failed:', e);
+        showError(makeClientError(
+            'web_unavailable',
+            '无法连接后端服务',
+            '检查 ccme-web、nginx 和网络连接'));
     }
 }
 
@@ -211,6 +295,24 @@ function updateVialGrid(total, current, state) {
 
 // ── Workflow ──
 
+async function readApiError(resp) {
+    let data = null;
+    try {
+        data = await resp.json();
+    } catch (e) {
+        // Response was not JSON.
+    }
+
+    if (data && data.error) {
+        return data.error;
+    }
+
+    return makeClientError(
+        'http_error',
+        (data && data.message) || `请求失败（HTTP ${resp.status}）`,
+        '查看后端日志');
+}
+
 async function startWorkflow() {
     const volume = parseFloat(volumeInput.value);
     if (isNaN(volume) || volume <= 0) { alert('请输入有效的注水量'); return; }
@@ -235,22 +337,60 @@ async function startWorkflow() {
                 dispense_volume_ml: dispenseVolume,
             }),
         });
+
         if (!resp.ok) {
-            const err = await resp.json();
-            alert(`启动失败: ${err.message || resp.statusText}`);
+            showError(await readApiError(resp));
             return;
         }
+
+        const data = await resp.json().catch(() => ({ success: true }));
+        if (data.success === false) {
+            showError(data.error || makeClientError(
+                'start_failed', '启动失败', '查看后端日志'));
+            return;
+        }
+
+        clearError();
         startPolling();
+        fetchStatus();
     } catch (e) {
         console.error('Start failed:', e);
+        showError(makeClientError(
+            'web_unavailable', '无法连接后端服务', '检查 ccme-web、nginx 和网络连接'));
     }
 }
 
 async function stopWorkflow() {
     try {
-        await fetch(`${API_BASE}/stop`, { method: 'POST' });
+        const resp = await fetch(`${API_BASE}/stop`, { method: 'POST' });
+        if (!resp.ok) {
+            showError(await readApiError(resp));
+            return;
+        }
+        fetchStatus();
     } catch (e) {
         console.error('Stop failed:', e);
+        showError(makeClientError(
+            'web_unavailable', '无法连接后端服务', '检查 ccme-web、nginx 和网络连接'));
+    }
+}
+
+async function resetWorkflow() {
+    btnReset.disabled = true;
+    try {
+        const resp = await fetch(`${API_BASE}/reset`, { method: 'POST' });
+        if (!resp.ok) {
+            showError(await readApiError(resp));
+            return;
+        }
+        clearError();
+        fetchStatus();
+    } catch (e) {
+        console.error('Reset failed:', e);
+        showError(makeClientError(
+            'web_unavailable', '无法连接后端服务', '检查 ccme-web、nginx 和网络连接'));
+    } finally {
+        btnReset.disabled = false;
     }
 }
 
@@ -258,7 +398,7 @@ async function stopWorkflow() {
 
 function startPolling() {
     if (pollTimer) return;
-    pollTimer = setInterval(fetchStatus, 1000);
+    pollTimer = setInterval(fetchStatus, 500);
     fetchStatus();
 }
 
@@ -311,6 +451,7 @@ videoMse.addEventListener('playing', () => videoOverlay.classList.add('hidden'))
 
 btnStart.addEventListener('click', startWorkflow);
 btnStop.addEventListener('click', stopWorkflow);
+btnReset.addEventListener('click', resetWorkflow);
 
 fetchStatus();
 updateVialGrid(36, 0, 'idle');

@@ -66,7 +66,11 @@ int main() {
                 }),
             sdbus::registerMethod("IsMoving").implementedAs([&fmc]() -> bool {
                 return fmc->IsMoving();
-            })
+            }),
+            sdbus::registerMethod("IsConnected").implementedAs(
+                [&fmc]() -> bool {
+                    return fmc->IsConnected();
+                })
         ).forInterface(std::string(service.interface_name));
 
         std::cout << "FMC service started on D-Bus: " << service.bus_name

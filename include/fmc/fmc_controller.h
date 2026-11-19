@@ -28,6 +28,7 @@ public:
 
     std::expected<bool, FmcError> Connect();
     void Disconnect();
+    [[nodiscard]] bool IsConnected() const;
 
     std::expected<bool, FmcError> Home();
     std::expected<bool, FmcError> MoveTo(float x, float y);

@@ -534,6 +534,85 @@ header h1 {
 .right-bottom.region-focused .module-row.active .module-status { color: var(--white); font-weight: 600; }
 .right-bottom.region-focused .module-indicator.offline { background: rgba(255,255,255,0.4); }
 
+/* ── Error Banner ── */
+
+.error-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--red-10);
+    border-bottom: 2px solid var(--red);
+    color: var(--gray-80);
+    flex-shrink: 0;
+    font-family: "Arial", "SimSun", sans-serif;
+}
+
+.error-banner.hidden { display: none; }
+
+.error-banner-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--red);
+    color: var(--white);
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 22px;
+    text-align: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.error-banner-body { flex: 1; min-width: 0; }
+
+.error-banner-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.error-banner-title {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.error-banner-time {
+    color: var(--gray-60);
+    font-size: 11px;
+}
+
+.error-banner-message {
+    font-size: 13px;
+    margin-top: 2px;
+    word-break: break-word;
+}
+
+.error-banner-hint {
+    color: var(--gray-60);
+    font-size: 12px;
+    margin-top: 3px;
+    word-break: break-word;
+}
+
+.error-banner-hint:empty { display: none; }
+
+.error-banner-btn {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border: 1px solid var(--red);
+    background: var(--white);
+    color: var(--red);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.error-banner-btn:hover { background: var(--red); color: var(--white); }
+.error-banner-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── Responsive ── */
 
 @media (max-width: 900px) {

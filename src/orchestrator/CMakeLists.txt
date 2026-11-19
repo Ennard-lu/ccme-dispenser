@@ -1,6 +1,6 @@
 add_executable(ccme-dispenser
-    workflow.cpp
     main.cpp
+    workflow.cpp
 )
 
 target_include_directories(ccme-dispenser PRIVATE
@@ -10,4 +10,5 @@ target_include_directories(ccme-dispenser PRIVATE
 target_link_libraries(ccme-dispenser PRIVATE
     SDBusCpp::sdbus-c++
     nlohmann_json::nlohmann_json
+    Threads::Threads
 )

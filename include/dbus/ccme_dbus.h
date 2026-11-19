@@ -83,6 +83,18 @@ struct Error {
     std::string message;
 };
 
+// sdbus-c++ formats exceptions as "[org.example.Error.Name] message".
+// Keep the human-readable part for UI/log messages.
+[[nodiscard]] inline std::string CleanMessage(std::string message) {
+    if (!message.empty() && message.front() == '[') {
+        const auto end = message.find("] ");
+        if (end != std::string::npos) {
+            return message.substr(end + 2);
+        }
+    }
+    return message;
+}
+
 // Create a connection that owns the well-known name of a CCME service.
 inline std::unique_ptr<sdbus::IConnection> Connect(const Service& service) {
     return sdbus::createSystemBusConnection(
@@ -159,7 +171,8 @@ public:
             }
             return {};
         } catch (const std::exception& e) {
-            return std::unexpected(Error{ErrorCode::kCallFailed, e.what()});
+            return std::unexpected(
+                Error{ErrorCode::kCallFailed, CleanMessage(e.what())});
         }
     }
 
@@ -185,7 +198,8 @@ public:
             }
             return {};
         } catch (const std::exception& e) {
-            return std::unexpected(Error{ErrorCode::kCallFailed, e.what()});
+            return std::unexpected(
+                Error{ErrorCode::kCallFailed, CleanMessage(e.what())});
         }
     }
 
@@ -211,7 +225,8 @@ public:
             }
             return result;
         } catch (const std::exception& e) {
-            return std::unexpected(Error{ErrorCode::kCallFailed, e.what()});
+            return std::unexpected(
+                Error{ErrorCode::kCallFailed, CleanMessage(e.what())});
         }
     }
 
@@ -240,7 +255,8 @@ public:
             }
             return result;
         } catch (const std::exception& e) {
-            return std::unexpected(Error{ErrorCode::kCallFailed, e.what()});
+            return std::unexpected(
+                Error{ErrorCode::kCallFailed, CleanMessage(e.what())});
         }
     }
 
@@ -260,7 +276,8 @@ private:
                 sdbus::ServiceName{std::string(service.bus_name)},
                 sdbus::ObjectPath{std::string(service.object_path)});
         } catch (const std::exception& e) {
-            return std::unexpected(Error{ErrorCode::kCallFailed, e.what()});
+            return std::unexpected(
+                Error{ErrorCode::kCallFailed, CleanMessage(e.what())});
         }
     }
 

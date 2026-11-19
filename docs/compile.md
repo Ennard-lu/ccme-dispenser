@@ -50,4 +50,5 @@ API 密钥建议通过运行时环境变量提供，避免写入 CMake 缓存：
 export CCME_AI_API_KEY="sk-..."
 ```
 
-完整选项说明见 [camera.md](camera.md)，D-Bus 接口说明见 [dbus.md](dbus.md)。
+完整选项说明见 [camera.md](camera.md)，D-Bus 接口说明见 [dbus.md](dbus.md)，
+Web API 与错误恢复说明见 [web.md](web.md)。

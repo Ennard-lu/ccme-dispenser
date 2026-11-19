@@ -74,6 +74,7 @@
 | 方法 | 参数 | 返回 | 说明 |
 | --- | --- | --- | --- |
 | `Connect` | - | `bool` | 连接 FMC4030 控制器 |
+| `IsConnected` | - | `bool` | 控制器是否已连接 |
 | `Home` | - | `bool` | 三轴回零，编排器使用 220s 超时 |
 | `MoveTo` | `double x, double y` | `bool` | 移动到绝对坐标 |
 | `MoveToVial` | `int index` | `bool` | 移动到指定小瓶，编排器使用 620s 超时 |
@@ -87,9 +88,41 @@
 | --- | --- | --- |
 | `Start` | `double volume_ml, int stir_speed_rpm, double heat_temp_c, double dispense_volume_ml` | `bool` |
 | `Stop` | - | `bool` |
+| `ClearError` | - | `bool` |
+| `GetStatus` | - | `string`（JSON） |
 | `GetState` | - | `string` |
 | `GetCurrentVial` | - | `int` |
 | `GetTotalVials` | - | `int` |
+
+`GetStatus` 返回的 JSON 示例：
+
+```json
+{
+  "state": "error",
+  "current_vial": 0,
+  "total_vials": 36,
+  "error": {
+    "active": true,
+    "code": "fmc_home_failed",
+    "message": "三轴回零失败: ...",
+    "hint": "检查限位开关、机械结构和 FMC 状态",
+    "module": "fmc",
+    "stage": "homing",
+    "recoverable": true,
+    "timestamp_ms": 1760000000000
+  }
+}
+```
+
+没有错误时 `error` 为 `null`。前端每 500ms 读取该状态并展示错误横幅。
+
+`ClearError` 的恢复语义：
+
+- 流程处于 `error` 或 `complete`：停止所有执行器、清空错误并回到 `idle`
+- 流程处于 `idle`：只清空历史错误
+- 流程正在运行：返回错误 `not_in_error`，必须先停止
+
+`Start` 在 `error` 状态下是允许的，会先清理错误再重新开始，因此用户修复外部问题后无需重启服务。
 
 工作流状态字符串：
 
