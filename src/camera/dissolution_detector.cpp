@@ -1,11 +1,20 @@
 #include "camera/dissolution_detector.h"
 
-#include <cmath>
-#include <vector>
+#include "ai/vision_client.h"
+
+#include <algorithm>
+#include <cctype>
+#include <chrono>
+#include <cstdlib>
 #include <iostream>
+#include <mutex>
+#include <thread>
+#include <utility>
+#include <vector>
 
 #ifdef CCME_HAS_OPENCV
 #include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 #endif
@@ -14,68 +23,138 @@ namespace ccme::camera {
 
 namespace {
 
-#ifdef CCME_HAS_OPENCV
-
-struct LogisticRegression {
-    float w_circle_radius{0.5f};
-    float w_circle_count{-0.3f};
-    float w_circle_density{0.8f};
-    float bias{-2.0f};
-
-    bool Predict(float radius_avg, int count, float density) const {
-        float z = w_circle_radius * radius_avg +
-                  w_circle_count * static_cast<float>(count) +
-                  w_circle_density * density + bias;
-        float prob = 1.0f / (1.0f + std::exp(-z));
-        return prob < 0.5f;
-    }
-};
-
-constexpr int kMaxCircles = 50;
-constexpr float kMinRadius = 5.0f;
-constexpr float kMaxRadius = 100.0f;
-constexpr float kMinDist = 20.0f;
-
-float DetectCircleRatio(cv::Mat& frame, int& circle_count) {
-    cv::Mat gray;
-    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-    cv::GaussianBlur(gray, gray, cv::Size(9, 9), 2.0);
-
-    std::vector<cv::Vec3f> circles;
-    cv::HoughCircles(gray, circles, cv::HOUGH_GRADIENT,
-                     1.5, kMinDist, 100, 30,
-                     static_cast<int>(kMinRadius),
-                     static_cast<int>(kMaxRadius));
-
-    circle_count = static_cast<int>(circles.size());
-    if (circle_count == 0) return 0.0f;
-
-    float total_area = 0.0f;
-    float frame_area = static_cast<float>(frame.cols * frame.rows);
-    for (const auto& c : circles) {
-        float r = c[2];
-        total_area += 3.14159f * r * r;
-    }
-    return total_area / frame_area;
+[[nodiscard]] std::string EnvString(const char* name, const char* fallback) {
+    const char* value = std::getenv(name);
+    return (value != nullptr && *value != '\0') ? std::string{value}
+                                                : std::string{fallback};
 }
 
+[[nodiscard]] int EnvInt(const char* name, int fallback) {
+    const char* value = std::getenv(name);
+    if (value == nullptr || *value == '\0') {
+        return fallback;
+    }
+    char* end = nullptr;
+    const long parsed = std::strtol(value, &end, 10);
+    return (end != value) ? static_cast<int>(parsed) : fallback;
+}
+
+[[nodiscard]] bool EnvBool(const char* name, bool fallback) {
+    const char* value = std::getenv(name);
+    if (value == nullptr || *value == '\0') {
+        return fallback;
+    }
+    std::string text{value};
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char c) {
+                       return static_cast<char>(std::tolower(c));
+                   });
+    return text == "1" || text == "true" || text == "yes" || text == "on";
+}
+
+[[nodiscard]] ai::VisionConfig BuildVisionConfig() {
+    ai::VisionConfig config;
+    config.api_url = EnvString("CCME_AI_API_URL", CCME_AI_API_URL);
+    config.api_key = EnvString("CCME_AI_API_KEY", CCME_AI_API_KEY);
+    config.model = EnvString("CCME_AI_MODEL", CCME_AI_MODEL);
+    config.timeout_sec = EnvInt("CCME_AI_TIMEOUT_SEC", CCME_AI_TIMEOUT_SEC);
+    config.max_tokens = CCME_AI_MAX_TOKENS;
+    config.disable_thinking =
+        EnvBool("CCME_AI_DISABLE_THINKING", CCME_AI_DISABLE_THINKING);
+    config.extra_prompt = EnvString("CCME_AI_PROMPT", CCME_AI_PROMPT);
+    return config;
+}
+
+[[nodiscard]] CameraError MapVisionError(ai::VisionError error) {
+    switch (error) {
+        case ai::VisionError::kNotConfigured:
+            return CameraError::kAiNotConfigured;
+        case ai::VisionError::kInvalidRequest:
+            return CameraError::kProcessingFailed;
+        case ai::VisionError::kNetworkError:
+        case ai::VisionError::kHttpError:
+            return CameraError::kAiRequestFailed;
+        case ai::VisionError::kInvalidResponse:
+            return CameraError::kAiResponseInvalid;
+    }
+    return CameraError::kProcessingFailed;
+}
+
+#ifdef CCME_HAS_OPENCV
+void PrepareFrameForUpload(cv::Mat& frame) {
+    constexpr int kMaxSide = CCME_AI_IMAGE_MAX_SIDE;
+    if (kMaxSide <= 0) {
+        return;
+    }
+
+    const int longest_side = std::max(frame.cols, frame.rows);
+    if (longest_side <= kMaxSide) {
+        return;
+    }
+
+    const double scale = static_cast<double>(kMaxSide) / longest_side;
+    cv::resize(frame, frame, cv::Size(), scale, scale, cv::INTER_AREA);
+}
 #endif
 
 }  // namespace
 
 struct DissolutionDetector::Impl {
+    mutable std::mutex mutex;
     bool connected{false};
-    std::string stream_url;
+    std::string stream_url{CCME_CAMERA_STREAM_URL};
+    ai::OpenAiVisionClient vision{BuildVisionConfig()};
+
 #ifdef CCME_HAS_OPENCV
-    cv::VideoCapture cap;
-    LogisticRegression model;
+    cv::VideoCapture capture;
 #endif
 
     Impl() {
+        std::cerr << "[CAMERA] Initialized: stream=" << stream_url
+                  << " model=" << vision.Config().model
+                  << " api=" << vision.Config().api_url
+                  << " key="
+                  << (vision.Config().api_key.empty() ? "not set" : "set")
+                  << "\n";
+        if (vision.Config().api_key.empty()) {
+            std::cerr << "[CAMERA] Warning: no API key configured; set "
+                         "CCME_AI_API_KEY unless the endpoint is key-less\n";
+        }
+    }
+
+    bool OpenStreamLocked() {
 #ifdef CCME_HAS_OPENCV
-        stream_url = CCME_CAMERA_STREAM_URL;
-        std::cerr << "[CAMERA] Initialized: stream=" << stream_url << "\n";
+        if (capture.isOpened()) {
+            connected = true;
+            return true;
+        }
+
+        std::cerr << "[CAMERA] Opening stream: " << stream_url << "\n";
+        if (!capture.open(stream_url, cv::CAP_FFMPEG)) {
+            std::cerr << "[CAMERA] Stream open failed\n";
+            connected = false;
+            return false;
+        }
+
+        capture.set(cv::CAP_PROP_BUFFERSIZE, 1);
+        connected = true;
+        std::cerr << "[CAMERA] Stream opened\n";
+        return true;
+#else
+        std::cerr << "[CAMERA] OpenCV is not available; cannot capture frames\n";
+        return false;
 #endif
+    }
+
+    void CloseStreamLocked() {
+        if (!connected) {
+            return;
+        }
+#ifdef CCME_HAS_OPENCV
+        capture.release();
+#endif
+        connected = false;
+        std::cerr << "[CAMERA] Stream closed\n";
     }
 };
 
@@ -86,83 +165,134 @@ DissolutionDetector::~DissolutionDetector() {
     Disconnect();
 }
 
-DissolutionDetector::DissolutionDetector(DissolutionDetector&&) noexcept = default;
-DissolutionDetector& DissolutionDetector::operator=(DissolutionDetector&&) noexcept = default;
+DissolutionDetector::DissolutionDetector(DissolutionDetector&&) noexcept =
+    default;
+DissolutionDetector& DissolutionDetector::operator=(
+    DissolutionDetector&&) noexcept = default;
 
 std::expected<bool, CameraError> DissolutionDetector::Connect() {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+
     if (impl_->connected) {
         std::cerr << "[CAMERA] Already connected\n";
         return true;
     }
 
-#ifdef CCME_HAS_OPENCV
-    std::cerr << "[CAMERA] Connecting to stream: " << impl_->stream_url << "\n";
-    if (!impl_->cap.open(impl_->stream_url, cv::CAP_FFMPEG)) {
-        std::cerr << "[CAMERA] Connection failed\n";
+    if (!impl_->OpenStreamLocked()) {
         return std::unexpected(CameraError::kConnectionFailed);
     }
-    impl_->connected = true;
-    std::cerr << "[CAMERA] Connected\n";
     return true;
-#else
-    std::cerr << "[CAMERA] OpenCV not available, cannot connect\n";
-    return std::unexpected(CameraError::kConnectionFailed);
-#endif
 }
 
 void DissolutionDetector::Disconnect() {
-    if (impl_->connected) {
-        std::cerr << "[CAMERA] Disconnecting\n";
-#ifdef CCME_HAS_OPENCV
-        impl_->cap.release();
-#endif
-        impl_->connected = false;
-        std::cerr << "[CAMERA] Disconnected\n";
-    }
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    impl_->CloseStreamLocked();
 }
 
-std::expected<bool, CameraError> DissolutionDetector::CheckDissolution() {
-    if (!impl_->connected) {
-        std::cerr << "[CAMERA] CheckDissolution rejected: not connected\n";
-        return std::unexpected(CameraError::kConnectionFailed);
+std::expected<DetectionResult, CameraError>
+DissolutionDetector::CheckDissolution() {
+    if (!impl_->vision.IsConfigured()) {
+        std::cerr << "[CAMERA] AI API is not configured "
+                     "(set CCME_AI_API_URL / CCME_AI_MODEL / CCME_AI_API_KEY)\n";
+        return std::unexpected(CameraError::kAiNotConfigured);
     }
 
 #ifdef CCME_HAS_OPENCV
-    cv::Mat frame;
-    if (!impl_->cap.read(frame) || frame.empty()) {
-        std::cerr << "[CAMERA] Frame capture failed\n";
-        return std::unexpected(CameraError::kFrameCaptureFailed);
-    }
+    std::vector<std::vector<std::uint8_t>> frames;
 
-    int circle_count = 0;
-    float density = DetectCircleRatio(frame, circle_count);
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
 
-    float avg_radius = 0.0f;
-    if (circle_count > 0) {
-        std::vector<cv::Vec3f> circles;
-        cv::Mat gray;
-        cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-        cv::GaussianBlur(gray, gray, cv::Size(9, 9), 2.0);
-        cv::HoughCircles(gray, circles, cv::HOUGH_GRADIENT,
-                         1.5, kMinDist, 100, 30,
-                         static_cast<int>(kMinRadius),
-                         static_cast<int>(kMaxRadius));
-        float sum_r = 0.0f;
-        for (const auto& c : circles) {
-            sum_r += c[2];
+        if (!impl_->connected && !impl_->OpenStreamLocked()) {
+            return std::unexpected(CameraError::kConnectionFailed);
         }
-        avg_radius = sum_r / static_cast<float>(circle_count);
+
+        constexpr int kFrameCount =
+            CCME_AI_FRAME_COUNT > 0 ? CCME_AI_FRAME_COUNT : 1;
+        frames.reserve(static_cast<std::size_t>(kFrameCount));
+
+        // Discard a potentially buffered stale frame.
+        impl_->capture.grab();
+
+        for (int i = 0; i < kFrameCount; ++i) {
+            cv::Mat frame;
+            if (!impl_->capture.read(frame) || frame.empty()) {
+                std::cerr << "[CAMERA] Frame capture failed, reconnecting\n";
+                impl_->CloseStreamLocked();
+                if (!impl_->OpenStreamLocked() ||
+                    !impl_->capture.read(frame) || frame.empty()) {
+                    return std::unexpected(CameraError::kFrameCaptureFailed);
+                }
+            }
+
+            PrepareFrameForUpload(frame);
+
+            std::vector<uchar> jpeg;
+            const std::vector<int> params{
+                cv::IMWRITE_JPEG_QUALITY, CCME_AI_JPEG_QUALITY};
+            if (!cv::imencode(".jpg", frame, jpeg, params)) {
+                std::cerr << "[CAMERA] JPEG encoding failed\n";
+                return std::unexpected(CameraError::kProcessingFailed);
+            }
+            frames.emplace_back(jpeg.begin(), jpeg.end());
+
+            if (i + 1 < kFrameCount) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            }
+        }
     }
 
-    bool dissolved = impl_->model.Predict(avg_radius, circle_count, density);
-    std::cerr << "[CAMERA] Detection: circles=" << circle_count
-              << " avg_r=" << avg_radius
-              << " density=" << density
-              << " dissolved=" << (dissolved ? "yes" : "no") << "\n";
-    return dissolved;
+    std::cerr << "[CAMERA] Sending " << frames.size()
+              << " frame(s) to AI model " << impl_->vision.Config().model
+              << "\n";
+
+    ai::VisionRequest request;
+    request.jpeg_frames = std::move(frames);
+
+    auto verdict = impl_->vision.Analyze(request);
+    if (!verdict) {
+        std::cerr << "[CAMERA] AI request failed ("
+                  << ai::ToString(verdict.error().code) << "): "
+                  << verdict.error().detail << "\n";
+        return std::unexpected(MapVisionError(verdict.error().code));
+    }
+
+    std::cerr << "[CAMERA] AI verdict: dissolved="
+              << (verdict->dissolved ? "yes" : "no")
+              << " confidence=" << verdict->confidence
+              << " reasoning=" << verdict->reasoning << "\n";
+
+    return DetectionResult{
+        verdict->dissolved,
+        verdict->confidence,
+        std::move(verdict->reasoning),
+    };
 #else
-    return false;
+    std::cerr << "[CAMERA] OpenCV is not available; cannot capture frames\n";
+    return std::unexpected(CameraError::kProcessingFailed);
 #endif
+}
+
+bool DissolutionDetector::IsConnected() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    return impl_->connected;
+}
+
+bool DissolutionDetector::IsAiConfigured() const {
+    return impl_->vision.IsConfigured();
+}
+
+const char* ToString(CameraError error) noexcept {
+    switch (error) {
+        case CameraError::kStreamNotFound: return "stream not found";
+        case CameraError::kConnectionFailed: return "connection failed";
+        case CameraError::kFrameCaptureFailed: return "frame capture failed";
+        case CameraError::kProcessingFailed: return "processing failed";
+        case CameraError::kAiNotConfigured: return "AI API not configured";
+        case CameraError::kAiRequestFailed: return "AI request failed";
+        case CameraError::kAiResponseInvalid: return "AI response invalid";
+    }
+    return "unknown";
 }
 
 }  // namespace ccme::camera

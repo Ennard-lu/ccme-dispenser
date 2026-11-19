@@ -34,3 +34,20 @@ cmake --build . -j$(nproc)
 
 ## 配置
 对于可配置的变量，比如使用的端口号，设备名字符串等等采用cmake的option或者configure统一管理。
+
+云端视觉识别相关配置：
+
+```bash
+cmake .. -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-toolchain.cmake \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DCCME_AI_API_URL="https://api.openai.com/v1/chat/completions" \
+         -DCCME_AI_MODEL="gpt-4o-mini"
+```
+
+API 密钥建议通过运行时环境变量提供，避免写入 CMake 缓存：
+
+```bash
+export CCME_AI_API_KEY="sk-..."
+```
+
+完整选项说明见 [camera.md](camera.md)，D-Bus 接口说明见 [dbus.md](dbus.md)。

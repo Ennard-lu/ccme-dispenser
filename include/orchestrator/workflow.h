@@ -9,6 +9,7 @@ namespace ccme::orchestrator {
 
 enum class WorkflowState {
     kIdle,
+    kHoming,
     kInjectingWater,
     kHeating,
     kStirring,

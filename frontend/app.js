@@ -19,6 +19,7 @@ const stirrerDetailEl = document.getElementById('stirrer-detail');
 
 const STATE_MAP = {
     idle: '空闲',
+    homing: '回零中',
     injecting_water: '注水中',
     heating: '加热中',
     stirring: '搅拌中',
@@ -157,8 +158,12 @@ async function fetchStatus() {
             }
 
             if (m.camera) {
-                updateModuleStatus('mod-camera', m.camera.connected,
-                    m.camera.connected ? '已连接' : '离线');
+                if (!m.camera.connected) {
+                    updateModuleOffline('mod-camera');
+                } else {
+                    const camLabel = m.camera.ai_configured ? '已连接' : 'AI未配置';
+                    updateModuleStatus('mod-camera', true, camLabel);
+                }
             } else {
                 updateModuleOffline('mod-camera');
             }

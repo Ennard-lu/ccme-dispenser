@@ -40,6 +40,37 @@ set(CCME_STIRRER_BAUD_RATE 9600 CACHE STRING "Serial port baud rate")
 set(CCME_CAMERA_STREAM_URL "tcp://127.0.0.1:7778" CACHE STRING "GStreamer video pipeline")
 set(CCME_CAMERA_CHECK_INTERVAL_MS 1000 CACHE STRING "Dissolution check interval (ms)")
 
+# Cloud vision options (OpenAI-compatible API)
+set(CCME_AI_API_URL "https://api.openai.com/v1/chat/completions" CACHE STRING
+    "OpenAI-compatible chat completions endpoint (base URL also accepted)")
+set(CCME_AI_API_KEY "" CACHE STRING
+    "API key fallback; prefer the CCME_AI_API_KEY environment variable")
+set(CCME_AI_MODEL "gpt-4o-mini" CACHE STRING
+    "Vision-capable model name")
+set(CCME_AI_TIMEOUT_SEC 30 CACHE STRING
+    "Cloud vision HTTP timeout (s)")
+set(CCME_AI_MAX_TOKENS 300 CACHE STRING
+    "Cloud vision maximum response tokens")
+set(CCME_AI_FRAME_COUNT 3 CACHE STRING
+    "Number of frames sent to the cloud model per check")
+set(CCME_AI_JPEG_QUALITY 85 CACHE STRING
+    "JPEG quality of uploaded frames (0-100)")
+set(CCME_AI_IMAGE_MAX_SIDE 1024 CACHE STRING
+    "Longest image side before upload, 0 disables resizing")
+set(CCME_AI_PROMPT "" CACHE STRING
+    "Extra instructions appended to the built-in vision prompt")
+set(CCME_AI_DISABLE_THINKING OFF CACHE BOOL
+    "Send thinking.type=disabled (recommended for Doubao-Seed-2.0-mini)")
+if(CCME_AI_DISABLE_THINKING)
+    set(CCME_AI_DISABLE_THINKING_VALUE 1)
+else()
+    set(CCME_AI_DISABLE_THINKING_VALUE 0)
+endif()
+
+# Dissolution workflow options
+set(CCME_DISSOLUTION_TIMEOUT_SEC 3600 CACHE STRING
+    "Maximum time to wait for dissolution (s, 0 = no timeout)")
+
 # FMC options
 set(CCME_FMC_CONTROLLER_IP "192.168.0.30" CACHE STRING "FMC4030 controller IP address")
 set(CCME_FMC_CONTROLLER_PORT 8088 CACHE STRING "FMC4030 controller port")
@@ -63,10 +94,10 @@ set(CCME_VIAL_ORIGIN_Z 0.0 CACHE STRING "Z coordinate of first vial (mm)")
 # ──────────────────────────────────────────────
 
 # sdbus-c++
-set(SDBUS_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(SDBUS_CPP_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(SDBUS_CPP_INSTALL OFF CACHE BOOL "" FORCE)
-set(SDBUS_CPP_BUILD_LIBSYSTEMD OFF CACHE BOOL "" FORCE)
+set(SDBUSCPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SDBUSCPP_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(SDBUSCPP_INSTALL OFF CACHE BOOL "" FORCE)
+set(SDBUSCPP_BUILD_LIBSYSTEMD OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdparty/sdbus-cpp)
 
 # nlohmann/json
@@ -76,6 +107,7 @@ add_subdirectory(3rdparty/json)
 
 # cpp-httplib (header-only HTTP server)
 set(HTTPLIB_TEST OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_INSTALL OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdparty/cpp-httplib)
 
@@ -113,6 +145,19 @@ add_compile_definitions(
     CCME_CAMERA_STREAM_URL="${CCME_CAMERA_STREAM_URL}"
     CCME_CAMERA_CHECK_INTERVAL_MS=${CCME_CAMERA_CHECK_INTERVAL_MS}
 
+    CCME_AI_API_URL="${CCME_AI_API_URL}"
+    CCME_AI_API_KEY="${CCME_AI_API_KEY}"
+    CCME_AI_MODEL="${CCME_AI_MODEL}"
+    CCME_AI_TIMEOUT_SEC=${CCME_AI_TIMEOUT_SEC}
+    CCME_AI_MAX_TOKENS=${CCME_AI_MAX_TOKENS}
+    CCME_AI_FRAME_COUNT=${CCME_AI_FRAME_COUNT}
+    CCME_AI_JPEG_QUALITY=${CCME_AI_JPEG_QUALITY}
+    CCME_AI_IMAGE_MAX_SIDE=${CCME_AI_IMAGE_MAX_SIDE}
+    CCME_AI_PROMPT="${CCME_AI_PROMPT}"
+    CCME_AI_DISABLE_THINKING=${CCME_AI_DISABLE_THINKING_VALUE}
+
+    CCME_DISSOLUTION_TIMEOUT_SEC=${CCME_DISSOLUTION_TIMEOUT_SEC}
+
     CCME_FMC_CONTROLLER_IP="${CCME_FMC_CONTROLLER_IP}"
     CCME_FMC_CONTROLLER_PORT=${CCME_FMC_CONTROLLER_PORT}
     CCME_FMC_CARD_ID=${CCME_FMC_CARD_ID}
@@ -135,6 +180,7 @@ add_compile_definitions(
 
 add_subdirectory(src/pump)
 add_subdirectory(src/stirrer)
+add_subdirectory(src/ai)
 add_subdirectory(src/camera)
 add_subdirectory(src/fmc)
 add_subdirectory(src/web)

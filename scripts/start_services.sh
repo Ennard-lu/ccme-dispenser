@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# Cloud vision API key (used by ccme-camera). Export it before running:
+#   export CCME_AI_API_KEY="sk-..."
+# If this script is launched with sudo, use `sudo -E` to preserve the variable.
+# Optional overrides: CCME_AI_API_URL, CCME_AI_MODEL, CCME_AI_PROMPT.
+
 BIN_DIR="${HOME}/.local/bin"
 LOG_DIR="${HOME}/.log/ccme"
 

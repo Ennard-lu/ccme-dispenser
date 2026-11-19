@@ -14,7 +14,7 @@ target_link_libraries(ccme-web PRIVATE
     Threads::Threads
 )
 
-find_package(OpenCV QUIET COMPONENTS core imgproc videoio)
+find_package(OpenCV QUIET COMPONENTS core imgproc imgcodecs videoio)
 if(OpenCV_FOUND)
     target_link_libraries(ccme-web PRIVATE ${OpenCV_LIBS})
     target_compile_definitions(ccme-web PRIVATE CCME_HAS_OPENCV)
