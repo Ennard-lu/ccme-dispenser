@@ -22,7 +22,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 set(CCME_PUMP0_PWM_PATH "/sys/class/pwm/pwmchip5" CACHE STRING "Pump 0 PWM device path")
 set(CCME_PUMP0_PWM_CHANNEL 0 CACHE STRING "Pump 0 PWM channel index")
 set(CCME_PUMP0_GPIO_DIR_PIN 131 CACHE STRING "Pump 0 GPIO direction pin")
-set(CCME_PUMP0_DIR_ACTIVE_LEVEL 1 CACHE STRING "Pump 0 direction GPIO level while running (0 or 1)")
+set(CCME_PUMP0_DIR_ACTIVE_LEVEL 0 CACHE STRING "Pump 0 direction GPIO level while running (0 or 1)")
 set(CCME_PUMP0_FLOW_RATE 5.39 CACHE STRING "Pump 0 flow rate (ml/s)")
 set(CCME_PUMP0_PWM_PERIOD_US 60000 CACHE STRING "Pump 0 PWM period (ns)")
 
