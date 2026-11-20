@@ -1,4 +1,5 @@
 #include "fmc/fmc_controller.h"
+#include "config/ccme_config.h"
 
 #include <FMC4030.h>
 #include <cstring>
@@ -27,21 +28,35 @@ constexpr float kDownZPosition = -1500;
 struct FmcController::Impl {
     int card_id{0};
     bool connected{false};
-    int vial_rows{CCME_VIAL_ROWS};
-    int vial_cols{CCME_VIAL_COLS};
+    int vial_rows{0};
+    int vial_cols{0};
     float home_position_x{};
     float home_position_y{};
-    float spacing_x{static_cast<float>(CCME_VIAL_SPACING_X)};
-    float spacing_y{static_cast<float>(CCME_VIAL_SPACING_Y)};
-    float origin_x{static_cast<float>(CCME_VIAL_ORIGIN_X)};
-    float origin_y{static_cast<float>(CCME_VIAL_ORIGIN_Y)};
-    float origin_z{static_cast<float>(CCME_VIAL_ORIGIN_Z)};
+    float spacing_x{};
+    float spacing_y{};
+    float origin_x{};
+    float origin_y{};
+    float origin_z{};
 
     Impl() : card_id(CCME_FMC_CARD_ID) {
+        const auto config = ccme::config::LoadConfig();
+        vial_rows = config.vial_matrix.rows;
+        vial_cols = config.vial_matrix.cols;
+        spacing_x = static_cast<float>(config.vial_matrix.spacing_x);
+        spacing_y = static_cast<float>(config.vial_matrix.spacing_y);
+        origin_x = static_cast<float>(config.vial_matrix.origin_x);
+        origin_y = static_cast<float>(config.vial_matrix.origin_y);
+        origin_z = static_cast<float>(config.vial_matrix.origin_z);
+
         std::cerr << "[FMC] Initialized: card=" << card_id
                   << " vials=" << vial_rows << "x" << vial_cols
-                  << " origin=(" << origin_x << "," << origin_y << ")"
-                  << " spacing=(" << spacing_x << "," << spacing_y << ")\n";
+                  << " origin=(" << origin_x << "," << origin_y << ","
+                  << origin_z << ")"
+                  << " spacing=(" << spacing_x << "," << spacing_y << ")"
+                  << " config="
+                  << (config.source_path.empty() ? "built-in defaults"
+                                                 : config.source_path)
+                  << "\n";
     }
 
     float VialX(int col) const {

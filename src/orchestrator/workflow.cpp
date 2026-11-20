@@ -1,5 +1,6 @@
 #include "orchestrator/workflow.h"
 
+#include "config/ccme_config.h"
 #include "dbus/ccme_dbus.h"
 
 #include <algorithm>
@@ -147,7 +148,7 @@ struct Workflow::Impl {
     double heat_temp_c{50.0};
     double dispense_volume_ml{10.0};
     std::atomic<int> current_vial{0};
-    int total_vials{CCME_VIAL_ROWS * CCME_VIAL_COLS};
+    int total_vials{0};
     std::atomic<bool> stop_requested{false};
     std::thread workflow_thread;
     DbusProxy dbus;
@@ -157,12 +158,21 @@ struct Workflow::Impl {
     bool skip_ai_check{false};
 
     Impl() {
+        const auto config = ccme::config::LoadConfig();
+        total_vials = config.vial_matrix.total_vials();
+
         skip_ai_check = EnvFlag("CCME_SKIP_AI_CHECK");
         if (skip_ai_check) {
             std::cerr << "[ORCH] WARNING: CCME_SKIP_AI_CHECK is enabled; "
                          "AI dissolution detection will be skipped and the "
                          "workflow will proceed directly to dispensing.\n";
         }
+
+        std::cerr << "[ORCH] Vial matrix: total=" << total_vials
+                  << " config="
+                  << (config.source_path.empty() ? "built-in defaults"
+                                                 : config.source_path)
+                  << "\n";
     }
 
     void SetState(WorkflowState new_state) {

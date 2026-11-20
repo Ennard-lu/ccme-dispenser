@@ -9,6 +9,7 @@ target_include_directories(ccme-dispenser PRIVATE
 
 target_link_libraries(ccme-dispenser PRIVATE
     SDBusCpp::sdbus-c++
+    ccme-config
     nlohmann_json::nlohmann_json
     Threads::Threads
 )

@@ -9,6 +9,7 @@ set -e
 
 BIN_DIR="${HOME}/.local/bin"
 LOG_DIR="${HOME}/.log/ccme"
+export CCME_CONFIG_PATH="${HOME}/.config/ccme/ccme.json"
 
 mkdir -p "$LOG_DIR"
 

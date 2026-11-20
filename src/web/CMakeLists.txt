@@ -9,6 +9,7 @@ target_include_directories(ccme-web PRIVATE
 
 target_link_libraries(ccme-web PRIVATE
     SDBusCpp::sdbus-c++
+    ccme-config
     nlohmann_json::nlohmann_json
     httplib::httplib
     Threads::Threads

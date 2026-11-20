@@ -51,4 +51,4 @@ export CCME_AI_API_KEY="sk-..."
 ```
 
 完整选项说明见 [camera.md](camera.md)，D-Bus 接口说明见 [dbus.md](dbus.md)，
-Web API 与错误恢复说明见 [web.md](web.md)。
+Web API 与错误恢复说明见 [web.md](web.md)，样品瓶矩阵配置见 [config.md](config.md)。

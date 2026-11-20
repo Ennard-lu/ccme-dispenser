@@ -10,5 +10,6 @@ target_include_directories(ccme-fmc PRIVATE
 
 target_link_libraries(ccme-fmc PRIVATE
     SDBusCpp::sdbus-c++
+    ccme-config
     fmc4030_sdk
 )

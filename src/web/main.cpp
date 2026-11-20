@@ -1,4 +1,5 @@
 #include "web/http_server.h"
+#include "config/ccme_config.h"
 #include "dbus/ccme_dbus.h"
 
 #include <nlohmann/json.hpp>
@@ -74,11 +75,15 @@ int main() {
     std::signal(SIGTERM, SignalHandler);
 
     try {
+        const auto app_config = ccme::config::LoadConfig();
+        const int configured_total_vials =
+            app_config.vial_matrix.total_vials();
+
         std::mutex status_mutex;
         nlohmann::json cached_status = {
             {"state", "idle"},
             {"current_vial", 0},
-            {"total_vials", CCME_VIAL_ROWS * CCME_VIAL_COLS},
+            {"total_vials", configured_total_vials},
             {"ai_check_skipped", false},
             {"error", nullptr},
             {"modules", {
@@ -208,14 +213,15 @@ int main() {
             return 1;
         }
 
-        std::thread poller_thread([poller, &status_mutex, &cached_status]() {
+        std::thread poller_thread([poller, &status_mutex, &cached_status,
+                                   configured_total_vials]() {
             std::cerr << "[WEB] Status poller started\n";
 
             while (g_running) {
                 nlohmann::json status;
                 status["state"] = "unknown";
                 status["current_vial"] = 0;
-                status["total_vials"] = CCME_VIAL_ROWS * CCME_VIAL_COLS;
+                status["total_vials"] = configured_total_vials;
                 status["modules"] = nlohmann::json::object();
 
                 auto orchestrator_status = poller->CallWithResult<std::string>(
@@ -243,7 +249,7 @@ int main() {
                         }
                         if (!status.contains("total_vials")) {
                             status["total_vials"] =
-                                CCME_VIAL_ROWS * CCME_VIAL_COLS;
+                                configured_total_vials;
                         }
                         if (!status.contains("state")) {
                             status["state"] = "unknown";

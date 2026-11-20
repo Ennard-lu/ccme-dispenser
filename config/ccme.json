@@ -1,0 +1,11 @@
+{
+    "vial_matrix": {
+        "rows": 6,
+        "cols": 6,
+        "spacing_x": -750,
+        "spacing_y": -750,
+        "origin_x": -50,
+        "origin_y": -450,
+        "origin_z": 0.0
+    }
+}
