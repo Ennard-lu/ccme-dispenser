@@ -5,6 +5,7 @@ set -e
 #   export CCME_AI_API_KEY="sk-..."
 # If this script is launched with sudo, use `sudo -E` to preserve the variable.
 # Optional overrides: CCME_AI_API_URL, CCME_AI_MODEL, CCME_AI_PROMPT.
+# Debug only: export CCME_SKIP_AI_CHECK=y to skip AI dissolution detection.
 
 BIN_DIR="${HOME}/.local/bin"
 LOG_DIR="${HOME}/.log/ccme"

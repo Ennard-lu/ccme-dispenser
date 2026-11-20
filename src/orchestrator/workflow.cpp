@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <optional>
@@ -27,6 +29,21 @@ constexpr auto kCameraTimeout = std::chrono::seconds(CCME_AI_TIMEOUT_SEC + 30);
 
 using DbusResult = std::expected<void, dbus::Error>;
 using DbusBool = std::expected<bool, dbus::Error>;
+
+[[nodiscard]] bool EnvFlag(const char* name) {
+    const char* value = std::getenv(name);
+    if (value == nullptr || *value == '\0') {
+        return false;
+    }
+
+    std::string text{value};
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char c) {
+                       return static_cast<char>(std::tolower(c));
+                   });
+    return text == "y" || text == "yes" || text == "1" || text == "true" ||
+           text == "on";
+}
 
 [[nodiscard]] std::int64_t NowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -137,6 +154,16 @@ struct Workflow::Impl {
 
     mutable std::mutex error_mutex;
     std::optional<WorkflowErrorInfo> last_error;
+    bool skip_ai_check{false};
+
+    Impl() {
+        skip_ai_check = EnvFlag("CCME_SKIP_AI_CHECK");
+        if (skip_ai_check) {
+            std::cerr << "[ORCH] WARNING: CCME_SKIP_AI_CHECK is enabled; "
+                         "AI dissolution detection will be skipped and the "
+                         "workflow will proceed directly to dispensing.\n";
+        }
+    }
 
     void SetState(WorkflowState new_state) {
         state.store(new_state, std::memory_order_relaxed);
@@ -243,33 +270,37 @@ struct Workflow::Impl {
     }
 
     void Run() {
-        auto ai_configured = dbus.CameraIsAiConfigured();
-        if (!ai_configured) {
-            Fail("camera_unavailable",
-                 "无法连接视觉检测服务: " + ai_configured.error().message,
-                 "确认 ccme-camera 正在运行，并检查 D-Bus 权限", "camera");
-            return;
-        }
-        if (!*ai_configured) {
-            Fail("ai_not_configured", "云端视觉模型尚未配置",
-                 "设置 CCME_AI_API_KEY、CCME_AI_MODEL 和 CCME_AI_API_URL "
-                 "后重启 ccme-camera",
-                 "camera");
-            return;
-        }
+        if (!skip_ai_check) {
+            auto ai_configured = dbus.CameraIsAiConfigured();
+            if (!ai_configured) {
+                Fail("camera_unavailable",
+                     "无法连接视觉检测服务: " + ai_configured.error().message,
+                     "确认 ccme-camera 正在运行，并检查 D-Bus 权限", "camera");
+                return;
+            }
+            if (!*ai_configured) {
+                Fail("ai_not_configured", "云端视觉模型尚未配置",
+                     "设置 CCME_AI_API_KEY、CCME_AI_MODEL 和 CCME_AI_API_URL "
+                     "后重启 ccme-camera",
+                     "camera");
+                return;
+            }
 
-        std::string camera_error;
-        if (!ConnectCamera(camera_error)) {
+            std::string camera_error;
+            if (!ConnectCamera(camera_error)) {
+                if (stop_requested.load(std::memory_order_relaxed)) {
+                    return;
+                }
+                Fail("camera_stream_unavailable",
+                     "摄像头视频流不可用: " + camera_error,
+                     "检查摄像头连接和 GStreamer 推流脚本", "camera");
+                return;
+            }
             if (stop_requested.load(std::memory_order_relaxed)) {
                 return;
             }
-            Fail("camera_stream_unavailable",
-                 "摄像头视频流不可用: " + camera_error,
-                 "检查摄像头连接和 GStreamer 推流脚本", "camera");
-            return;
-        }
-        if (stop_requested.load(std::memory_order_relaxed)) {
-            return;
+        } else {
+            std::cerr << "[ORCH] AI/camera preflight skipped\n";
         }
 
         std::string fmc_error;
@@ -330,66 +361,79 @@ struct Workflow::Impl {
 
         SetState(WorkflowState::kCheckingDissolution);
         bool dissolved = false;
-        bool timed_out = false;
-        bool check_failed = false;
-        std::string last_check_error;
-        int consecutive_failures = 0;
-        const auto check_started = std::chrono::steady_clock::now();
 
-        while (!stop_requested.load(std::memory_order_relaxed)) {
-            if (CCME_DISSOLUTION_TIMEOUT_SEC > 0 &&
-                std::chrono::steady_clock::now() - check_started >=
-                    std::chrono::seconds(CCME_DISSOLUTION_TIMEOUT_SEC)) {
-                timed_out = true;
-                break;
-            }
+        if (skip_ai_check) {
+            std::cerr << "[ORCH] AI dissolution check skipped; "
+                         "treating solution as ready for dispensing\n";
+            dissolved = true;
+        } else {
+            bool timed_out = false;
+            bool check_failed = false;
+            std::string last_check_error;
+            int consecutive_failures = 0;
+            const auto check_started = std::chrono::steady_clock::now();
 
-            auto result = dbus.CheckDissolution();
-            if (!result) {
-                last_check_error = result.error().message;
-                std::cerr << "[ORCH] CheckDissolution failed: "
-                          << last_check_error << "\n";
-                if (++consecutive_failures >= kMaxConsecutiveCheckFailures) {
-                    check_failed = true;
+            while (!stop_requested.load(std::memory_order_relaxed)) {
+                if (CCME_DISSOLUTION_TIMEOUT_SEC > 0 &&
+                    std::chrono::steady_clock::now() - check_started >=
+                        std::chrono::seconds(CCME_DISSOLUTION_TIMEOUT_SEC)) {
+                    timed_out = true;
                     break;
                 }
-            } else {
-                consecutive_failures = 0;
-                if (*result) {
-                    dissolved = true;
+
+                auto result = dbus.CheckDissolution();
+                if (!result) {
+                    last_check_error = result.error().message;
+                    std::cerr << "[ORCH] CheckDissolution failed: "
+                              << last_check_error << "\n";
+                    if (++consecutive_failures >=
+                        kMaxConsecutiveCheckFailures) {
+                        check_failed = true;
+                        break;
+                    }
+                } else {
+                    consecutive_failures = 0;
+                    if (*result) {
+                        dissolved = true;
+                        break;
+                    }
+                }
+
+                if (!SleepUnlessStopped(kDissolutionPollMs)) {
                     break;
                 }
             }
 
-            if (!SleepUnlessStopped(kDissolutionPollMs)) {
-                break;
+            dbus.CameraDisconnect();
+
+            if (stop_requested.load(std::memory_order_relaxed)) {
+                StopDevices();
+                return;
+            }
+            if (!dissolved) {
+                if (timed_out) {
+                    Fail("dissolution_timeout",
+                         "等待溶解完成超时（" +
+                             std::to_string(CCME_DISSOLUTION_TIMEOUT_SEC) +
+                             " 秒）",
+                         "检查加热和搅拌是否正常，或提高 "
+                         "CCME_DISSOLUTION_TIMEOUT_SEC",
+                         "camera");
+                } else if (check_failed) {
+                    Fail("vision_check_failed",
+                         "连续视觉检测失败: " + last_check_error,
+                         "检查云端 AI 网络、API Key/模型配置和摄像头画面",
+                         "camera");
+                } else {
+                    Fail("dissolution_not_confirmed", "未能确认溶解完成",
+                         "检查视觉识别结果和烧杯状态", "camera");
+                }
+                return;
             }
         }
-
-        dbus.CameraDisconnect();
 
         if (stop_requested.load(std::memory_order_relaxed)) {
             StopDevices();
-            return;
-        }
-        if (!dissolved) {
-            if (timed_out) {
-                Fail("dissolution_timeout",
-                     "等待溶解完成超时（" +
-                         std::to_string(CCME_DISSOLUTION_TIMEOUT_SEC) +
-                         " 秒）",
-                     "检查加热和搅拌是否正常，或提高 "
-                     "CCME_DISSOLUTION_TIMEOUT_SEC",
-                     "camera");
-            } else if (check_failed) {
-                Fail("vision_check_failed",
-                     "连续视觉检测失败: " + last_check_error,
-                     "检查云端 AI 网络、API Key/模型配置和摄像头画面",
-                     "camera");
-            } else {
-                Fail("dissolution_not_confirmed", "未能确认溶解完成",
-                     "检查视觉识别结果和烧杯状态", "camera");
-            }
             return;
         }
 
@@ -559,6 +603,7 @@ WorkflowSnapshot Workflow::GetStatus() const {
     snapshot.current_vial =
         impl_->current_vial.load(std::memory_order_relaxed);
     snapshot.total_vials = impl_->total_vials;
+    snapshot.ai_check_skipped = impl_->skip_ai_check;
     snapshot.error = impl_->ErrorCopy();
     return snapshot;
 }

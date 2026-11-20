@@ -11,6 +11,7 @@ const btnStop = document.getElementById('btn-stop');
 const currentVialEl = document.getElementById('current-vial');
 const totalVialsEl = document.getElementById('total-vials');
 const currentStateEl = document.getElementById('current-state');
+const aiCheckModeEl = document.getElementById('ai-check-mode');
 const vialGrid = document.getElementById('vial-grid');
 const videoMse = document.getElementById('video-mse');
 const videoMjpeg = document.getElementById('video-mjpeg');
@@ -187,6 +188,10 @@ async function fetchStatus() {
         currentVialEl.textContent = data.current_vial || 0;
         totalVialsEl.textContent = data.total_vials || 36;
         currentStateEl.textContent = STATE_MAP[data.state] || data.state || '空闲';
+        aiCheckModeEl.textContent = data.ai_check_skipped ? '已跳过' : '启用';
+        aiCheckModeEl.title = data.ai_check_skipped
+            ? 'CCME_SKIP_AI_CHECK 已启用，流程不会等待 AI 溶解判定'
+            : '流程会在分装前等待 AI 溶解判定';
 
         if (data.error && data.error.active !== false) {
             showError(data.error);

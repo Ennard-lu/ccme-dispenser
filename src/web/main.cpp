@@ -79,6 +79,7 @@ int main() {
             {"state", "idle"},
             {"current_vial", 0},
             {"total_vials", CCME_VIAL_ROWS * CCME_VIAL_COLS},
+            {"ai_check_skipped", false},
             {"error", nullptr},
             {"modules", {
                 {"pump", {{"online", true}, {"running", false}, {"error", ""}}},
@@ -226,6 +227,7 @@ int main() {
                             orchestrator_status.error().message,
                         "检查 ccme-dispenser 是否运行以及 D-Bus 权限",
                         "orchestrator");
+                    status["ai_check_skipped"] = false;
                 } else {
                     auto parsed = nlohmann::json::parse(
                         *orchestrator_status, nullptr, false);
@@ -245,6 +247,9 @@ int main() {
                         }
                         if (!status.contains("state")) {
                             status["state"] = "unknown";
+                        }
+                        if (!status.contains("ai_check_skipped")) {
+                            status["ai_check_skipped"] = false;
                         }
                         if (!status.contains("error")) {
                             status["error"] = nullptr;

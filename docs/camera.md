@@ -85,6 +85,9 @@ export CCME_AI_MODEL="gpt-4o-mini"
 export CCME_AI_TIMEOUT_SEC="30"
 export CCME_AI_PROMPT="请特别关注烧杯底部是否有未溶解的晶体。"
 export CCME_AI_DISABLE_THINKING="1"
+
+# 仅调试/演示时使用：跳过 AI 溶解检测
+# export CCME_SKIP_AI_CHECK="y"
 ```
 
 `CCME_AI_API_KEY` 不会写入日志；只会在启动日志中显示为 `set` 或 `not set`。
@@ -169,6 +172,37 @@ cmake .. \
 ```
 
 API Key 仍建议通过 `CCME_AI_API_KEY` 环境变量提供。
+
+### 跳过 AI 检测（仅调试）
+
+设置：
+
+```bash
+export CCME_SKIP_AI_CHECK="y"
+```
+
+后重启 `ccme-dispenser`。可接受的开启值包括：
+
+```text
+y / Y / yes / 1 / true / on
+```
+
+启用后编排器会：
+
+- 跳过云端 AI 配置检查
+- 跳过摄像头连接检查
+- 跳过整个溶解检测循环
+- 在启动加热和搅拌后直接认为溶解完成，进入分装阶段
+
+启动日志会输出醒目警告：
+
+```text
+[ORCH] WARNING: CCME_SKIP_AI_CHECK is enabled; AI dissolution detection will be skipped ...
+```
+
+前端「视觉检测」一栏会显示「已跳过」。
+
+> **警告**：该模式不会验证固体是否真正溶解，仅用于硬件调试、联调或演示。正式实验请务必关闭。
 
 ### 失败处理
 

@@ -101,6 +101,7 @@
   "state": "error",
   "current_vial": 0,
   "total_vials": 36,
+  "ai_check_skipped": false,
   "error": {
     "active": true,
     "code": "fmc_home_failed",

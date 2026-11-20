@@ -36,6 +36,7 @@ namespace {
     json["state"] = ccme::orchestrator::ToString(status.state);
     json["current_vial"] = status.current_vial;
     json["total_vials"] = status.total_vials;
+    json["ai_check_skipped"] = status.ai_check_skipped;
 
     if (status.error) {
         const auto& error = *status.error;

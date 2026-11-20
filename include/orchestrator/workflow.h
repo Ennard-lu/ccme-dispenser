@@ -50,6 +50,7 @@ struct WorkflowSnapshot {
     WorkflowState state{WorkflowState::kIdle};
     int current_vial{0};
     int total_vials{0};
+    bool ai_check_skipped{false};
     std::optional<WorkflowErrorInfo> error;
 };
 

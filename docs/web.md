@@ -13,6 +13,7 @@
   "state": "error",
   "current_vial": 0,
   "total_vials": 36,
+  "ai_check_skipped": false,
   "error": {
     "active": true,
     "code": "camera_stream_unavailable",
@@ -42,6 +43,7 @@
 ```
 
 - `error` 为 `null` 表示当前没有错误。
+- `ai_check_skipped` 为 `true` 表示已通过 `CCME_SKIP_AI_CHECK` 跳过 AI 溶解检测，工作流会直接进入分装。
 - 模块 `online: false` 时，`error` 包含对应的 D-Bus 错误信息。
 - 编排器不可用时，`error.code` 为 `orchestrator_unavailable`。
 - 前端每 500ms 轮询一次该接口，因此错误通常在一个轮询周期内显示。
