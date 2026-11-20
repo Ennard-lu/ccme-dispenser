@@ -22,6 +22,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 set(CCME_PUMP0_PWM_PATH "/sys/class/pwm/pwmchip5" CACHE STRING "Pump 0 PWM device path")
 set(CCME_PUMP0_PWM_CHANNEL 0 CACHE STRING "Pump 0 PWM channel index")
 set(CCME_PUMP0_GPIO_DIR_PIN 131 CACHE STRING "Pump 0 GPIO direction pin")
+set(CCME_PUMP0_DIR_ACTIVE_LEVEL 1 CACHE STRING "Pump 0 direction GPIO level while running (0 or 1)")
 set(CCME_PUMP0_FLOW_RATE 5.39 CACHE STRING "Pump 0 flow rate (ml/s)")
 set(CCME_PUMP0_PWM_PERIOD_US 60000 CACHE STRING "Pump 0 PWM period (ns)")
 
@@ -29,6 +30,7 @@ set(CCME_PUMP0_PWM_PERIOD_US 60000 CACHE STRING "Pump 0 PWM period (ns)")
 set(CCME_PUMP1_PWM_PATH "/sys/class/pwm/pwmchip3" CACHE STRING "Pump 1 PWM device path")
 set(CCME_PUMP1_PWM_CHANNEL 0 CACHE STRING "Pump 1 PWM channel index")
 set(CCME_PUMP1_GPIO_DIR_PIN 134 CACHE STRING "Pump 1 GPIO direction pin")
+set(CCME_PUMP1_DIR_ACTIVE_LEVEL 0 CACHE STRING "Pump 1 direction GPIO level while running (0 or 1)")
 set(CCME_PUMP1_FLOW_RATE 5.39 CACHE STRING "Pump 1 flow rate (ml/s)")
 set(CCME_PUMP1_PWM_PERIOD_US 60000 CACHE STRING "Pump 1 PWM period (ns)")
 
@@ -83,10 +85,12 @@ set(CCME_WEB_LISTEN_ADDRESS "0.0.0.0" CACHE STRING "HTTP server listen address")
 # Vial matrix options
 set(CCME_VIAL_ROWS 6 CACHE STRING "Number of vial rows")
 set(CCME_VIAL_COLS 6 CACHE STRING "Number of vial columns")
-set(CCME_VIAL_SPACING_X -709.92 CACHE STRING "X-axis spacing between vials")
-set(CCME_VIAL_SPACING_Y -709.92 CACHE STRING "Y-axis spacing between vials")
-set(CCME_VIAL_ORIGIN_X 0.0 CACHE STRING "X coordinate of first vial (mm)")
-set(CCME_VIAL_ORIGIN_Y 0.0 CACHE STRING "Y coordinate of first vial (mm)")
+set(CCME_VIAL_SPACING_X -720 CACHE STRING "X-axis spacing between vials")
+#set(CCME_VIAL_SPACING_X -709.92 CACHE STRING "X-axis spacing between vials")
+set(CCME_VIAL_SPACING_Y -720 CACHE STRING "X-axis spacing between vials")
+#set(CCME_VIAL_SPACING_Y -709.92 CACHE STRING "Y-axis spacing between vials")
+set(CCME_VIAL_ORIGIN_X -50 CACHE STRING "X coordinate of first vial (mm)")
+set(CCME_VIAL_ORIGIN_Y -450 CACHE STRING "Y coordinate of first vial (mm)")
 set(CCME_VIAL_ORIGIN_Z 0.0 CACHE STRING "Z coordinate of first vial (mm)")
 
 # ──────────────────────────────────────────────
@@ -131,11 +135,13 @@ add_compile_definitions(
     CCME_PUMP0_PWM_PATH="${CCME_PUMP0_PWM_PATH}"
     CCME_PUMP0_PWM_CHANNEL=${CCME_PUMP0_PWM_CHANNEL}
     CCME_PUMP0_GPIO_DIR_PIN=${CCME_PUMP0_GPIO_DIR_PIN}
+    CCME_PUMP0_DIR_ACTIVE_LEVEL=${CCME_PUMP0_DIR_ACTIVE_LEVEL}
     CCME_PUMP0_FLOW_RATE=${CCME_PUMP0_FLOW_RATE}
     CCME_PUMP0_PWM_PERIOD_US=${CCME_PUMP0_PWM_PERIOD_US}
     CCME_PUMP1_PWM_PATH="${CCME_PUMP1_PWM_PATH}"
     CCME_PUMP1_PWM_CHANNEL=${CCME_PUMP1_PWM_CHANNEL}
     CCME_PUMP1_GPIO_DIR_PIN=${CCME_PUMP1_GPIO_DIR_PIN}
+    CCME_PUMP1_DIR_ACTIVE_LEVEL=${CCME_PUMP1_DIR_ACTIVE_LEVEL}
     CCME_PUMP1_FLOW_RATE=${CCME_PUMP1_FLOW_RATE}
     CCME_PUMP1_PWM_PERIOD_US=${CCME_PUMP1_PWM_PERIOD_US}
 

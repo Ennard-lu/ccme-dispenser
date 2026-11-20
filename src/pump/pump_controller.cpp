@@ -34,6 +34,8 @@ struct PumpController::Impl {
     std::string pwm_path;
     int pwm_channel;
     int gpio_dir_pin;
+    int dir_active_level;
+    int dir_idle_level;
     double flow_rate;
     int pwm_period_us;
     std::chrono::steady_clock::time_point start_time;
@@ -46,6 +48,7 @@ struct PumpController::Impl {
                        + std::to_string(CCME_PUMP0_PWM_CHANNEL);
             pwm_channel = CCME_PUMP0_PWM_CHANNEL;
             gpio_dir_pin = CCME_PUMP0_GPIO_DIR_PIN;
+            dir_active_level = (CCME_PUMP0_DIR_ACTIVE_LEVEL == 0) ? 0 : 1;
             flow_rate = CCME_PUMP0_FLOW_RATE;
             pwm_period_us = CCME_PUMP0_PWM_PERIOD_US;
         } else {
@@ -53,12 +56,16 @@ struct PumpController::Impl {
                        + std::to_string(CCME_PUMP1_PWM_CHANNEL);
             pwm_channel = CCME_PUMP1_PWM_CHANNEL;
             gpio_dir_pin = CCME_PUMP1_GPIO_DIR_PIN;
+            dir_active_level = (CCME_PUMP1_DIR_ACTIVE_LEVEL == 0) ? 0 : 1;
             flow_rate = CCME_PUMP1_FLOW_RATE;
             pwm_period_us = CCME_PUMP1_PWM_PERIOD_US;
         }
+        // Keep the direction input in the opposite level while the pump is off.
+        dir_idle_level = (dir_active_level == 0) ? 1 : 0;
         std::cerr << "[PUMP" << (id == PumpId::kPump1 ? "1" : "2")
                   << "] Initialized: pwm=" << pwm_path
                   << " gpio=" << gpio_dir_pin
+                  << " dir_active=" << dir_active_level
                   << " flow=" << flow_rate << " ml/s\n";
     }
 
@@ -119,7 +126,7 @@ std::expected<bool, PumpError> PumpController::Start(double volume_ml) {
               << " duration=" << duration_s << "s\n";
 
     impl_->ExportPins();
-    SetGpio(impl_->gpio_dir_pin, 1);
+    SetGpio(impl_->gpio_dir_pin, impl_->dir_active_level);
     impl_->StartPwm();
 
     impl_->running = true;
@@ -148,7 +155,7 @@ std::expected<bool, PumpError> PumpController::Stop() {
               << "] Stopping\n";
 
     impl_->StopPwm();
-    SetGpio(impl_->gpio_dir_pin, 0);
+    SetGpio(impl_->gpio_dir_pin, impl_->dir_idle_level);
     impl_->running = false;
 
     auto elapsed = std::chrono::steady_clock::now() - impl_->start_time;
