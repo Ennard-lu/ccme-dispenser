@@ -20,7 +20,7 @@ constexpr int kHomeDir = 1;
 constexpr int kStopMode = 0;
 constexpr int kMotionTimeoutMs = 200000;
 constexpr int kPollIntervalMs = 50;
-constexpr float kDownZPosition = -500;
+constexpr float kDownZPosition = -1500;
 
 }  // namespace
 
