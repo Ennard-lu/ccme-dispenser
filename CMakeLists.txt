@@ -30,7 +30,7 @@ set(CCME_PUMP0_PWM_PERIOD_US 60000 CACHE STRING "Pump 0 PWM period (ns)")
 set(CCME_PUMP1_PWM_PATH "/sys/class/pwm/pwmchip3" CACHE STRING "Pump 1 PWM device path")
 set(CCME_PUMP1_PWM_CHANNEL 0 CACHE STRING "Pump 1 PWM channel index")
 set(CCME_PUMP1_GPIO_DIR_PIN 134 CACHE STRING "Pump 1 GPIO direction pin")
-set(CCME_PUMP1_DIR_ACTIVE_LEVEL 0 CACHE STRING "Pump 1 direction GPIO level while running (0 or 1)")
+set(CCME_PUMP1_DIR_ACTIVE_LEVEL 1 CACHE STRING "Pump 1 direction GPIO level while running (0 or 1)")
 set(CCME_PUMP1_FLOW_RATE 5.39 CACHE STRING "Pump 1 flow rate (ml/s)")
 set(CCME_PUMP1_PWM_PERIOD_US 60000 CACHE STRING "Pump 1 PWM period (ns)")
 
