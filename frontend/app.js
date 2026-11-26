@@ -411,7 +411,14 @@ function startPolling() {
 
 let mseStartTimer = null;
 let mjpegStartTimer = null;
+let mseWatchdog = null;
+let mjpegWatchdog = null;
 let usingMjpeg = false;
+let mseRestarts = 0;
+let mseGeneration = 0;
+let lastMseTime = 0;
+let lastMseAdvance = 0;
+let lastMjpegLoad = 0;
 
 function showVideoOverlay(text) {
     videoOverlay.classList.remove('hidden');
@@ -422,37 +429,109 @@ function hideVideoOverlay() {
     videoOverlay.classList.add('hidden');
 }
 
+function restartMseOrFallback(reason) {
+    if (usingMjpeg) return;
+    if (mseRestarts < 2) {
+        mseRestarts += 1;
+        console.warn(`${reason}; restarting MSE player (${mseRestarts}/2)`);
+        startMsePlayer();
+    } else {
+        console.warn(`${reason}; falling back to MJPEG`);
+        fallbackToMjpeg();
+    }
+}
+
+function checkMseStall() {
+    if (usingMjpeg || !mpegtsPlayer || videoMse.paused) return;
+
+    const now = Date.now();
+    if (videoMse.currentTime !== lastMseTime) {
+        lastMseTime = videoMse.currentTime;
+        lastMseAdvance = now;
+        return;
+    }
+
+    if (videoMse.readyState >= 2 && now - lastMseAdvance > 6000) {
+        restartMseOrFallback('MSE stream stalled');
+    }
+}
+
+function startMsePlayer() {
+    if (usingMjpeg || typeof mpegts === 'undefined' || !mpegts.isSupported()) {
+        return;
+    }
+
+    clearTimeout(mseStartTimer);
+    clearInterval(mseWatchdog);
+    if (mpegtsPlayer) {
+        const old_player = mpegtsPlayer;
+        mpegtsPlayer = null;
+        old_player.destroy();
+    }
+    const generation = ++mseGeneration;
+
+    mpegtsPlayer = mpegts.createPlayer({
+        type: 'mpegts',
+        isLive: true,
+        lazyLoad: false,
+        url: `${API_BASE}/hls/stream`
+    }, {
+        enableWorker: true,
+        enableStashBuffer: false,
+        stashInitialSize: 128,
+        autoCleanupSourceBuffer: true,
+        autoCleanupMaxBackwardDuration: 5,
+        autoCleanupMinBackwardDuration: 3,
+        liveBufferLatencyChasing: true,
+        liveBufferLatencyMaxLatency: 1.5,
+        liveBufferLatencyMinRemain: 0.3,
+    });
+    mpegtsPlayer.attachMediaElement(videoMse);
+    mpegtsPlayer.load();
+    mpegtsPlayer.play().catch(() => {
+        if (generation === mseGeneration) fallbackToMjpeg();
+    });
+    mpegtsPlayer.on(mpegts.Events.ERROR, () => {
+        if (generation === mseGeneration) fallbackToMjpeg();
+    });
+    mpegtsPlayer.on(mpegts.Events.LOADING_COMPLETE, () => {
+        if (generation === mseGeneration) {
+            restartMseOrFallback('MSE stream ended');
+        }
+    });
+
+    lastMseTime = 0;
+    lastMseAdvance = Date.now();
+    mseWatchdog = setInterval(checkMseStall, 2000);
+
+    // If no playable frame arrives in time, fall back to MJPEG instead of
+    // leaving the overlay on "连接中" forever.
+    mseStartTimer = setTimeout(() => {
+        if (!usingMjpeg && videoMse.readyState < 3) {
+            fallbackToMjpeg();
+        }
+    }, 8000);
+}
+
+function startMjpegWatchdog() {
+    clearInterval(mjpegWatchdog);
+    lastMjpegLoad = Date.now();
+    mjpegWatchdog = setInterval(() => {
+        if (!usingMjpeg) return;
+        if (Date.now() - lastMjpegLoad > 10000) {
+            console.warn('MJPEG stream stalled, reconnecting');
+            lastMjpegLoad = Date.now();
+            videoMjpeg.src = `${API_BASE}/stream?t=${Date.now()}`;
+        }
+    }, 3000);
+}
+
 function initVideoStream() {
     videoMjpeg.style.display = 'none';
     videoMse.style.display = 'block';
 
     if (typeof mpegts !== 'undefined' && mpegts.isSupported()) {
-        mpegtsPlayer = mpegts.createPlayer({
-            type: 'mpegts',
-            url: `${API_BASE}/hls/stream`
-        }, {
-            enableWorker: true,
-            enableStashBuffer: false,
-            stashInitialSize: 128,
-            autoCleanupSourceBuffer: true,
-            autoCleanupMaxBackwardDuration: 5,
-            autoCleanupMinBackwardDuration: 3,
-            liveBufferLatencyChasing: true,
-            liveBufferLatencyMaxLatency: 1.5,
-            liveBufferLatencyMinRemain: 0.3,
-        });
-        mpegtsPlayer.attachMediaElement(videoMse);
-        mpegtsPlayer.load();
-        mpegtsPlayer.play().catch(() => fallbackToMjpeg());
-        mpegtsPlayer.on(mpegts.Events.ERROR, () => fallbackToMjpeg());
-
-        // If no playable frame arrives in time, fall back to MJPEG instead of
-        // leaving the overlay on "连接中" forever.
-        mseStartTimer = setTimeout(() => {
-            if (videoMse.readyState < 3) {
-                fallbackToMjpeg();
-            }
-        }, 8000);
+        startMsePlayer();
     } else {
         fallbackToMjpeg();
     }
@@ -462,6 +541,7 @@ function fallbackToMjpeg() {
     if (usingMjpeg) return;
     usingMjpeg = true;
     clearTimeout(mseStartTimer);
+    clearInterval(mseWatchdog);
 
     if (mpegtsPlayer) { mpegtsPlayer.destroy(); mpegtsPlayer = null; }
     videoMse.style.display = 'none';
@@ -478,9 +558,11 @@ function fallbackToMjpeg() {
             showVideoOverlay('视频流连接超时，请检查推流服务');
         }
     }, 10000);
+    startMjpegWatchdog();
 }
 
 videoMjpeg.addEventListener('load', () => {
+    lastMjpegLoad = Date.now();
     clearTimeout(mjpegStartTimer);
     hideVideoOverlay();
 });
@@ -490,6 +572,7 @@ videoMjpeg.addEventListener('error', () => {
 });
 videoMse.addEventListener('playing', () => {
     clearTimeout(mseStartTimer);
+    lastMseAdvance = Date.now();
     hideVideoOverlay();
 });
 

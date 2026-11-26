@@ -7,6 +7,7 @@
 #include <thread>
 #include <chrono>
 #include <cerrno>
+#include <cstdint>
 #include <vector>
 
 #include <sys/socket.h>
@@ -104,8 +105,8 @@ std::expected<bool, WebError> HttpServer::Start() {
     }
 
     impl_->svr = std::make_unique<httplib::Server>();
-    impl_->svr->set_read_timeout(5, 0);
-    impl_->svr->set_write_timeout(5, 0);
+    impl_->svr->set_read_timeout(30, 0);
+    impl_->svr->set_write_timeout(30, 0);
 
     impl_->svr->Get("/api/status", [this](const httplib::Request&,
                                            httplib::Response& res) {
@@ -259,10 +260,41 @@ std::expected<bool, WebError> HttpServer::Start() {
             std::cerr << "[WEB] MJPEG source connected: " << source_url
                       << "\n";
 
+            res.set_header("Cache-Control",
+                           "no-cache, no-store, must-revalidate");
+            res.set_header("Pragma", "no-cache");
+            res.set_header("X-Accel-Buffering", "no");
+
             res.set_chunked_content_provider(
                 "multipart/x-mixed-replace; boundary=frame",
-                [cap](size_t, httplib::DataSink& sink) -> bool {
+                [cap, sources, open_params](size_t,
+                                            httplib::DataSink& sink) mutable
+                    -> bool {
                     int consecutive_failures = 0;
+                    std::uint64_t frames_sent = 0;
+
+                    const auto reopen_capture = [&]() -> bool {
+                        cap->release();
+                        for (const auto& url : sources) {
+                            auto candidate =
+                                std::make_shared<cv::VideoCapture>();
+                            try {
+                                if (candidate->open(url, cv::CAP_FFMPEG,
+                                                    open_params)) {
+                                    cap = std::move(candidate);
+                                    std::cerr << "[WEB] MJPEG reconnected: "
+                                              << url << "\n";
+                                    return true;
+                                }
+                            } catch (const std::exception& e) {
+                                std::cerr << "[WEB] MJPEG reconnect exception ("
+                                          << url << "): " << e.what()
+                                          << "\n";
+                            }
+                        }
+                        return false;
+                    };
+
                     while (sink.is_writable()) {
                         try {
                             cv::Mat frame;
@@ -284,9 +316,14 @@ std::expected<bool, WebError> HttpServer::Start() {
                                 if (!ok) {
                                     break;
                                 }
-                            } else if (++consecutive_failures >= 50) {
-                                std::cerr << "[WEB] MJPEG stream lost\n";
-                                break;
+                                ++frames_sent;
+                            } else if (++consecutive_failures >= 10) {
+                                std::cerr << "[WEB] MJPEG stream lost, "
+                                             "reconnecting\n";
+                                if (!reopen_capture()) {
+                                    break;
+                                }
+                                consecutive_failures = 0;
                             }
                         } catch (const std::exception& e) {
                             std::cerr << "[WEB] MJPEG stream exception: "
@@ -296,7 +333,8 @@ std::expected<bool, WebError> HttpServer::Start() {
                         std::this_thread::sleep_for(
                             std::chrono::milliseconds(33));
                     }
-                    std::cerr << "[WEB] MJPEG client disconnected\n";
+                    std::cerr << "[WEB] MJPEG client disconnected, sent "
+                              << frames_sent << " frames\n";
                     return false;
                 });
         });
@@ -316,6 +354,10 @@ std::expected<bool, WebError> HttpServer::Start() {
         impl_->svr->Get("/api/hls/stream", [port](const httplib::Request&,
                                                    httplib::Response& res) {
             std::cerr << "[WEB] GET /api/hls/stream (MPEG-TS port=" << port << ")\n";
+            res.set_header("Cache-Control",
+                           "no-cache, no-store, must-revalidate");
+            res.set_header("Pragma", "no-cache");
+            res.set_header("X-Accel-Buffering", "no");
             res.set_chunked_content_provider(
                 "video/mp2t",
                 [port](size_t, httplib::DataSink& sink) -> bool {
@@ -351,12 +393,14 @@ std::expected<bool, WebError> HttpServer::Start() {
 
                     std::cerr << "[WEB] MPEG-TS proxy connected\n";
                     char buf[4096];
+                    std::uint64_t total_bytes = 0;
                     while (sink.is_writable()) {
                         const ssize_t n = ::recv(fd, buf, sizeof(buf), 0);
                         if (n > 0) {
                             if (!sink.write(buf, static_cast<size_t>(n))) {
                                 break;
                             }
+                            total_bytes += static_cast<std::uint64_t>(n);
                         } else if (n == 0) {
                             break;
                         } else if (errno == EINTR) {
@@ -369,7 +413,8 @@ std::expected<bool, WebError> HttpServer::Start() {
                         }
                     }
                     ::close(fd);
-                    std::cerr << "[WEB] MPEG-TS client disconnected\n";
+                    std::cerr << "[WEB] MPEG-TS client disconnected, sent "
+                              << total_bytes << " bytes\n";
                     return false;
                 });
         });
