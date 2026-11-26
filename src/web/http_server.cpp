@@ -6,8 +6,10 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <cerrno>
 
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -101,6 +103,8 @@ std::expected<bool, WebError> HttpServer::Start() {
     }
 
     impl_->svr = std::make_unique<httplib::Server>();
+    impl_->svr->set_read_timeout(5, 0);
+    impl_->svr->set_write_timeout(5, 0);
 
     impl_->svr->Get("/api/status", [this](const httplib::Request&,
                                            httplib::Response& res) {
@@ -203,15 +207,27 @@ std::expected<bool, WebError> HttpServer::Start() {
 
 #ifdef CCME_HAS_OPENCV
     // MJPEG fallback endpoint (OpenCV decode + JPEG re-encode)
-    if (!impl_->config.stream_url.empty()) {
-        auto stream_url = impl_->config.stream_url;
+    if (!impl_->config.mpegts_url.empty()) {
+        auto stream_url = impl_->config.mpegts_url;
         impl_->svr->Get("/api/stream", [stream_url](const httplib::Request&,
                                                      httplib::Response& res) {
             std::cerr << "[WEB] GET /api/stream (MJPEG)\n";
-            auto cap = std::make_shared<cv::VideoCapture>(
-                stream_url, cv::CAP_FFMPEG);
-            if (!cap->isOpened()) {
-                std::cerr << "[WEB] MJPEG stream open failed\n";
+            auto cap = std::make_shared<cv::VideoCapture>();
+            try {
+                const std::vector<int> open_params{
+                    cv::CAP_PROP_OPEN_TIMEOUT_MSEC, 5000,
+                    cv::CAP_PROP_READ_TIMEOUT_MSEC, 5000,
+                };
+                if (!cap->open(stream_url, cv::CAP_FFMPEG, open_params)) {
+                    std::cerr << "[WEB] MJPEG stream open failed\n";
+                    res.status = 503;
+                    res.set_content("Camera stream not available",
+                                    "text/plain");
+                    return;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "[WEB] MJPEG stream open exception: "
+                          << e.what() << "\n";
                 res.status = 503;
                 res.set_content("Camera stream not available", "text/plain");
                 return;
@@ -219,26 +235,43 @@ std::expected<bool, WebError> HttpServer::Start() {
 
             res.set_chunked_content_provider(
                 "multipart/x-mixed-replace; boundary=frame",
-                [cap](size_t, httplib::DataSink& sink) {
-                    cv::Mat frame;
+                [cap](size_t, httplib::DataSink& sink) -> bool {
+                    int consecutive_failures = 0;
                     while (sink.is_writable()) {
-                        if (cap->read(frame) && !frame.empty()) {
-                            std::vector<uchar> buf;
-                            cv::imencode(".jpg", frame, buf,
-                                         {cv::IMWRITE_JPEG_QUALITY, 80});
-                            const char hdr[] =
-                                "--frame\r\n"
-                                "Content-Type: image/jpeg\r\n\r\n";
-                            sink.write(hdr, sizeof(hdr) - 1);
-                            sink.write(reinterpret_cast<const char*>(buf.data()),
-                                       buf.size());
-                            const char tail[] = "\r\n";
-                            sink.write(tail, 2);
+                        try {
+                            cv::Mat frame;
+                            if (cap->read(frame) && !frame.empty()) {
+                                consecutive_failures = 0;
+                                std::vector<uchar> buf;
+                                cv::imencode(".jpg", frame, buf,
+                                             {cv::IMWRITE_JPEG_QUALITY, 80});
+                                const char hdr[] =
+                                    "--frame\r\n"
+                                    "Content-Type: image/jpeg\r\n\r\n";
+                                const char tail[] = "\r\n";
+                                const bool ok =
+                                    sink.write(hdr, sizeof(hdr) - 1) &&
+                                    sink.write(reinterpret_cast<const char*>(
+                                                   buf.data()),
+                                               buf.size()) &&
+                                    sink.write(tail, 2);
+                                if (!ok) {
+                                    break;
+                                }
+                            } else if (++consecutive_failures >= 50) {
+                                std::cerr << "[WEB] MJPEG stream lost\n";
+                                break;
+                            }
+                        } catch (const std::exception& e) {
+                            std::cerr << "[WEB] MJPEG stream exception: "
+                                      << e.what() << "\n";
+                            break;
                         }
                         std::this_thread::sleep_for(
                             std::chrono::milliseconds(33));
                     }
-                    return true;
+                    std::cerr << "[WEB] MJPEG client disconnected\n";
+                    return false;
                 });
         });
     }
@@ -246,7 +279,7 @@ std::expected<bool, WebError> HttpServer::Start() {
 
     // Low-latency MPEG-TS TCP proxy: no decode/re-encode, browser decodes via MSE
     {
-        std::string url = impl_->config.stream_url;
+        std::string url = impl_->config.mpegts_url;
         int port = 7777;
         auto pos = url.rfind(':');
         if (pos != std::string::npos) {
@@ -260,6 +293,10 @@ std::expected<bool, WebError> HttpServer::Start() {
             res.set_chunked_content_provider(
                 "video/mp2t",
                 [port](size_t, httplib::DataSink& sink) -> bool {
+                    if (!sink.is_writable()) {
+                        return false;
+                    }
+
                     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
                     if (fd < 0) {
                         std::cerr << "[WEB] MPEG-TS socket create failed\n";
@@ -278,20 +315,36 @@ std::expected<bool, WebError> HttpServer::Start() {
                         return false;
                     }
 
+                    // Wake up regularly so a browser disconnect is noticed even
+                    // when the local stream temporarily has no data.
+                    struct timeval recv_timeout{};
+                    recv_timeout.tv_sec = 1;
+                    recv_timeout.tv_usec = 0;
+                    ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,
+                                 &recv_timeout, sizeof(recv_timeout));
+
                     std::cerr << "[WEB] MPEG-TS proxy connected\n";
                     char buf[4096];
-                    bool ok = true;
-                    while (ok && sink.is_writable()) {
-                        ssize_t n = ::recv(fd, buf, sizeof(buf), 0);
+                    while (sink.is_writable()) {
+                        const ssize_t n = ::recv(fd, buf, sizeof(buf), 0);
                         if (n > 0) {
-                            ok = sink.write(buf, n);
+                            if (!sink.write(buf, static_cast<size_t>(n))) {
+                                break;
+                            }
+                        } else if (n == 0) {
+                            break;
+                        } else if (errno == EINTR) {
+                            continue;
+                        } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            // Receive timeout: loop to re-check the client.
+                            continue;
                         } else {
                             break;
                         }
                     }
                     ::close(fd);
-                    std::cerr << "[WEB] MPEG-TS proxy disconnected\n";
-                    return true;
+                    std::cerr << "[WEB] MPEG-TS client disconnected\n";
+                    return false;
                 });
         });
     }

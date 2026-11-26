@@ -443,6 +443,9 @@ function fallbackToMjpeg() {
     if (mpegtsPlayer) { mpegtsPlayer.destroy(); mpegtsPlayer = null; }
     videoMse.style.display = 'none';
     videoMjpeg.style.display = 'block';
+    if (!videoMjpeg.getAttribute('src')) {
+        videoMjpeg.src = `${API_BASE}/stream`;
+    }
 }
 
 videoMjpeg.addEventListener('load', () => videoOverlay.classList.add('hidden'));

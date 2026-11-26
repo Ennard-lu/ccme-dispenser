@@ -43,14 +43,16 @@ gst-launch-1.0 v4l2src device=/dev/video-camera0 io-mode=4 do-timestamp=false \
 - **Port 7777**: MPEG-TS → `ccme-web` HTTP 代理 → 浏览器 mpegts.js MSE（延迟 ~0.5-1s）
 - **Port 7778**: Raw H.264 → `ccme-camera` 溶解检测
 
-同一个 H.264 源，只编码一次，两路共享。
+同一个 H.264 源，只编码一次，两路共享。`ccme-web` 的 `/api/hls/stream` 和
+`/api/stream` 都读取 7777 的 MPEG-TS 流，不会占用摄像头 AI 检测使用的 7778 流。
 
 ## 前端显示方式
 
 - **MSE 模式**（低延迟，推荐）: 浏览器通过 `/api/hls/stream` 获取 MPEG-TS 流，使用 mpegts.js + MediaSource Extensions 硬解 H.264，延迟约 0.5-1 秒
 - **MJPEG 模式**（兼容）: 浏览器通过 `/api/stream` 获取 MJPEG 流，OpenCV 解码后重编码为 JPEG，延迟约 2-3 秒
 
-前端会优先尝试 MSE 模式，失败时自动回退到 MJPEG 模式。
+前端会优先尝试 MSE 模式，失败时自动回退到 MJPEG 模式。MJPEG 连接只会在回退时建立，
+避免页面加载时同时占用两路视频流和 HTTP 工作线程。
 
 ## 判断溶解完全的方式（云端 AI）
 
@@ -60,7 +62,8 @@ gst-launch-1.0 v4l2src device=/dev/video-camera0 io-mode=4 do-timestamp=false \
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `CCME_CAMERA_STREAM_URL` | `tcp://127.0.0.1:7778` | GStreamer 原始 H.264 流地址（用于截帧） |
+| `CCME_CAMERA_STREAM_URL` | `tcp://127.0.0.1:7778` | GStreamer 原始 H.264 流地址（仅用于 `ccme-camera` 截帧） |
+| `CCME_WEB_MPEGTS_URL` | `tcp://127.0.0.1:7777` | 网页 MSE / MJPEG 使用的 MPEG-TS 流地址 |
 | `CCME_CAMERA_CHECK_INTERVAL_MS` | `1000` | 编排器轮询 `CheckDissolution` 的间隔（毫秒） |
 | `CCME_AI_API_URL` | `https://api.openai.com/v1/chat/completions` | OpenAI 兼容接口地址，也可只写 `https://api.openai.com` 或 `https://api.openai.com/v1` |
 | `CCME_AI_API_KEY` | 空 | API 密钥；建议改用环境变量，避免写入构建缓存 |

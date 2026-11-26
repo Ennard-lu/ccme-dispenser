@@ -73,6 +73,11 @@ void SignalHandler(int) {
 int main() {
     std::signal(SIGINT, SignalHandler);
     std::signal(SIGTERM, SignalHandler);
+#ifndef _WIN32
+    // Writing to a browser socket that has already disconnected must not
+    // terminate the web process.
+    std::signal(SIGPIPE, SIG_IGN);
+#endif
 
     try {
         const auto app_config = ccme::config::LoadConfig();
@@ -106,7 +111,7 @@ int main() {
         ccme::web::ServerConfig config;
         config.port = CCME_WEB_HTTP_PORT;
         config.listen_address = CCME_WEB_LISTEN_ADDRESS;
-        config.stream_url = CCME_CAMERA_STREAM_URL;
+        config.mpegts_url = CCME_WEB_MPEGTS_URL;
 
         auto server = std::make_unique<ccme::web::HttpServer>(config);
 

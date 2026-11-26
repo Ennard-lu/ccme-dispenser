@@ -81,6 +81,8 @@ set(CCME_FMC_CARD_ID 0 CACHE STRING "FMC4030 card ID")
 # Web options
 set(CCME_WEB_HTTP_PORT 8080 CACHE STRING "HTTP server port")
 set(CCME_WEB_LISTEN_ADDRESS "0.0.0.0" CACHE STRING "HTTP server listen address")
+set(CCME_WEB_MPEGTS_URL "tcp://127.0.0.1:7777" CACHE STRING
+    "MPEG-TS stream URL used by the web video endpoints")
 
 # Vial matrix values are read at runtime from config/ccme.json (or
 # CCME_CONFIG_PATH); see docs/config.md. No rebuild is needed to change them.
@@ -162,6 +164,7 @@ add_compile_definitions(
 
     CCME_WEB_HTTP_PORT=${CCME_WEB_HTTP_PORT}
     CCME_WEB_LISTEN_ADDRESS="${CCME_WEB_LISTEN_ADDRESS}"
+    CCME_WEB_MPEGTS_URL="${CCME_WEB_MPEGTS_URL}"
 )
 
 # ──────────────────────────────────────────────
