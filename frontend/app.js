@@ -409,6 +409,19 @@ function startPolling() {
 
 // ── Video ──
 
+let mseStartTimer = null;
+let mjpegStartTimer = null;
+let usingMjpeg = false;
+
+function showVideoOverlay(text) {
+    videoOverlay.classList.remove('hidden');
+    videoOverlay.querySelector('span').textContent = text;
+}
+
+function hideVideoOverlay() {
+    videoOverlay.classList.add('hidden');
+}
+
 function initVideoStream() {
     videoMjpeg.style.display = 'none';
     videoMse.style.display = 'block';
@@ -430,30 +443,55 @@ function initVideoStream() {
         });
         mpegtsPlayer.attachMediaElement(videoMse);
         mpegtsPlayer.load();
-        mpegtsPlayer.play().then(() => {
-            videoOverlay.classList.add('hidden');
-        }).catch(() => fallbackToMjpeg());
+        mpegtsPlayer.play().catch(() => fallbackToMjpeg());
         mpegtsPlayer.on(mpegts.Events.ERROR, () => fallbackToMjpeg());
+
+        // If no playable frame arrives in time, fall back to MJPEG instead of
+        // leaving the overlay on "连接中" forever.
+        mseStartTimer = setTimeout(() => {
+            if (videoMse.readyState < 3) {
+                fallbackToMjpeg();
+            }
+        }, 8000);
     } else {
         fallbackToMjpeg();
     }
 }
 
 function fallbackToMjpeg() {
+    if (usingMjpeg) return;
+    usingMjpeg = true;
+    clearTimeout(mseStartTimer);
+
     if (mpegtsPlayer) { mpegtsPlayer.destroy(); mpegtsPlayer = null; }
     videoMse.style.display = 'none';
     videoMjpeg.style.display = 'block';
+    showVideoOverlay('连接中...');
+
     if (!videoMjpeg.getAttribute('src')) {
         videoMjpeg.src = `${API_BASE}/stream`;
     }
+
+    clearTimeout(mjpegStartTimer);
+    mjpegStartTimer = setTimeout(() => {
+        if (!videoMjpeg.complete || videoMjpeg.naturalWidth === 0) {
+            showVideoOverlay('视频流连接超时，请检查推流服务');
+        }
+    }, 10000);
 }
 
-videoMjpeg.addEventListener('load', () => videoOverlay.classList.add('hidden'));
-videoMjpeg.addEventListener('error', () => {
-    videoOverlay.classList.remove('hidden');
-    videoOverlay.querySelector('span').textContent = '视频流不可用';
+videoMjpeg.addEventListener('load', () => {
+    clearTimeout(mjpegStartTimer);
+    hideVideoOverlay();
 });
-videoMse.addEventListener('playing', () => videoOverlay.classList.add('hidden'));
+videoMjpeg.addEventListener('error', () => {
+    clearTimeout(mjpegStartTimer);
+    showVideoOverlay('视频流不可用');
+});
+videoMse.addEventListener('playing', () => {
+    clearTimeout(mseStartTimer);
+    hideVideoOverlay();
+});
 
 // ── Init ──
 

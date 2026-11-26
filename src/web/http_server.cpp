@@ -7,6 +7,7 @@
 #include <thread>
 #include <chrono>
 #include <cerrno>
+#include <vector>
 
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -207,31 +208,56 @@ std::expected<bool, WebError> HttpServer::Start() {
 
 #ifdef CCME_HAS_OPENCV
     // MJPEG fallback endpoint (OpenCV decode + JPEG re-encode)
-    if (!impl_->config.mpegts_url.empty()) {
-        auto stream_url = impl_->config.mpegts_url;
-        impl_->svr->Get("/api/stream", [stream_url](const httplib::Request&,
-                                                     httplib::Response& res) {
+    if (!impl_->config.mpegts_url.empty() ||
+        !impl_->config.camera_url.empty()) {
+        const auto mpegts_url = impl_->config.mpegts_url;
+        const auto camera_url = impl_->config.camera_url;
+        impl_->svr->Get("/api/stream",
+                        [mpegts_url, camera_url](const httplib::Request&,
+                                                 httplib::Response& res) {
             std::cerr << "[WEB] GET /api/stream (MJPEG)\n";
-            auto cap = std::make_shared<cv::VideoCapture>();
-            try {
-                const std::vector<int> open_params{
-                    cv::CAP_PROP_OPEN_TIMEOUT_MSEC, 5000,
-                    cv::CAP_PROP_READ_TIMEOUT_MSEC, 5000,
-                };
-                if (!cap->open(stream_url, cv::CAP_FFMPEG, open_params)) {
-                    std::cerr << "[WEB] MJPEG stream open failed\n";
-                    res.status = 503;
-                    res.set_content("Camera stream not available",
-                                    "text/plain");
-                    return;
+
+            std::vector<std::string> sources;
+            // Prefer the raw H.264 stream for MJPEG: it is the stream that
+            // OpenCV has historically decoded on the target board. The
+            // MPEG-TS source is only a fallback.
+            if (!camera_url.empty()) {
+                sources.push_back(camera_url);
+            }
+            if (!mpegts_url.empty() && mpegts_url != camera_url) {
+                sources.push_back(mpegts_url);
+            }
+
+            std::shared_ptr<cv::VideoCapture> cap;
+            std::string source_url;
+            const std::vector<int> open_params{
+                cv::CAP_PROP_OPEN_TIMEOUT_MSEC, 5000,
+                cv::CAP_PROP_READ_TIMEOUT_MSEC, 5000,
+            };
+
+            for (const auto& url : sources) {
+                auto candidate = std::make_shared<cv::VideoCapture>();
+                try {
+                    std::cerr << "[WEB] MJPEG trying source: " << url << "\n";
+                    if (candidate->open(url, cv::CAP_FFMPEG, open_params)) {
+                        cap = std::move(candidate);
+                        source_url = url;
+                        break;
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "[WEB] MJPEG source exception (" << url
+                              << "): " << e.what() << "\n";
                 }
-            } catch (const std::exception& e) {
-                std::cerr << "[WEB] MJPEG stream open exception: "
-                          << e.what() << "\n";
+            }
+
+            if (!cap) {
+                std::cerr << "[WEB] MJPEG stream open failed for all sources\n";
                 res.status = 503;
                 res.set_content("Camera stream not available", "text/plain");
                 return;
             }
+            std::cerr << "[WEB] MJPEG source connected: " << source_url
+                      << "\n";
 
             res.set_chunked_content_provider(
                 "multipart/x-mixed-replace; boundary=frame",

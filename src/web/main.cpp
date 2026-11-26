@@ -112,6 +112,7 @@ int main() {
         config.port = CCME_WEB_HTTP_PORT;
         config.listen_address = CCME_WEB_LISTEN_ADDRESS;
         config.mpegts_url = CCME_WEB_MPEGTS_URL;
+        config.camera_url = CCME_CAMERA_STREAM_URL;
 
         auto server = std::make_unique<ccme::web::HttpServer>(config);
 
@@ -402,6 +403,8 @@ int main() {
         std::cout << "  HTTP:  http://0.0.0.0:" << config.port << "\n";
         std::cerr << "[WEB] Service started: HTTP=0.0.0.0:" << config.port
                   << "\n";
+        std::cerr << "[WEB] Video sources: mpegts=" << config.mpegts_url
+                  << " camera=" << config.camera_url << "\n";
 
         while (g_running) {
             std::this_thread::sleep_for(std::chrono::seconds(1));

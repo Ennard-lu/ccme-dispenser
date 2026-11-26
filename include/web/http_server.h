@@ -40,7 +40,11 @@ struct ServerConfig {
     std::string listen_address{"0.0.0.0"};
     std::uint16_t port{8080};
     std::string static_dir{"frontend"};
+    // MPEG-TS stream used by the MSE proxy.
     std::string mpegts_url;
+    // Raw H.264 stream used by ccme-camera; preferred by MJPEG because it is
+    // the stream OpenCV decodes most reliably on the target board.
+    std::string camera_url;
 };
 
 class HttpServer {
