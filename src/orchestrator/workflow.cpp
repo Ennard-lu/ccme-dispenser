@@ -289,9 +289,9 @@ struct Workflow::Impl {
                 return;
             }
             if (!*ai_configured) {
-                Fail("ai_not_configured", "云端视觉模型尚未配置",
-                     "设置 CCME_AI_API_KEY、CCME_AI_MODEL 和 CCME_AI_API_URL "
-                     "后重启 ccme-camera",
+                Fail("ai_not_configured", "云端视觉模型或提示词尚未配置",
+                     "设置 CCME_AI_API_KEY、CCME_AI_MODEL 和 CCME_AI_API_URL，"
+                     "并创建 ~/.config/ccme/ai_prompt.txt 后重启 ccme-camera",
                      "camera");
                 return;
             }

@@ -6,8 +6,12 @@
 #include <cctype>
 #include <chrono>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <mutex>
+#include <optional>
+#include <sstream>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -52,6 +56,73 @@ namespace {
     return text == "1" || text == "true" || text == "yes" || text == "on";
 }
 
+[[nodiscard]] std::string Trim(std::string text) {
+    const auto is_space = [](unsigned char c) {
+        return std::isspace(c) != 0;
+    };
+
+    const auto begin = std::find_if_not(text.begin(), text.end(), is_space);
+    const auto end = std::find_if_not(text.rbegin(), text.rend(), is_space).base();
+    if (begin >= end) {
+        return {};
+    }
+    return std::string{begin, end};
+}
+
+struct PromptFile {
+    std::string path;
+    std::string text;
+};
+
+[[nodiscard]] std::optional<PromptFile> ReadPromptFile(
+    const std::string& path) {
+    std::ifstream input(path);
+    if (!input) {
+        return std::nullopt;
+    }
+
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    std::string text = Trim(buffer.str());
+    if (text.empty()) {
+        return std::nullopt;
+    }
+    return PromptFile{path, std::move(text)};
+}
+
+[[nodiscard]] std::optional<PromptFile> FindPromptFile() {
+    if (const char* explicit_path = std::getenv("CCME_AI_PROMPT_FILE");
+        explicit_path != nullptr && *explicit_path != '\0') {
+        if (auto prompt = ReadPromptFile(explicit_path)) {
+            return prompt;
+        }
+        std::cerr << "[CAMERA] Warning: cannot read CCME_AI_PROMPT_FILE="
+                  << explicit_path << "\n";
+        return std::nullopt;
+    }
+
+    std::vector<std::string> candidates;
+    if (const char* home = std::getenv("HOME");
+        home != nullptr && *home != '\0') {
+        candidates.push_back(std::string{home} +
+                             "/.config/ccme/ai_prompt.txt");
+        candidates.push_back(std::string{home} +
+                             "/.local/etc/ccme/ai_prompt.txt");
+    }
+    candidates.emplace_back("/etc/ccme/ai_prompt.txt");
+    candidates.emplace_back("/usr/etc/ccme/ai_prompt.txt");
+    candidates.emplace_back("/usr/local/etc/ccme/ai_prompt.txt");
+    candidates.emplace_back("config/ai_prompt.txt");
+    candidates.emplace_back("ai_prompt.txt");
+
+    for (const auto& path : candidates) {
+        if (auto prompt = ReadPromptFile(path)) {
+            return prompt;
+        }
+    }
+    return std::nullopt;
+}
+
 [[nodiscard]] ai::VisionConfig BuildVisionConfig() {
     ai::VisionConfig config;
     config.api_url = EnvString("CCME_AI_API_URL", CCME_AI_API_URL);
@@ -62,6 +133,16 @@ namespace {
     config.disable_thinking =
         EnvBool("CCME_AI_DISABLE_THINKING", CCME_AI_DISABLE_THINKING);
     config.extra_prompt = EnvString("CCME_AI_PROMPT", CCME_AI_PROMPT);
+
+    if (auto prompt = FindPromptFile()) {
+        config.prompt = std::move(prompt->text);
+        config.prompt_source = std::move(prompt->path);
+    } else {
+        std::cerr << "[CAMERA] Warning: AI prompt file not found; create "
+                     "~/.config/ccme/ai_prompt.txt or set "
+                     "CCME_AI_PROMPT_FILE\n";
+    }
+
     return config;
 }
 
@@ -115,10 +196,18 @@ struct DissolutionDetector::Impl {
                   << " api=" << vision.Config().api_url
                   << " key="
                   << (vision.Config().api_key.empty() ? "not set" : "set")
+                  << " prompt="
+                  << (vision.Config().prompt.empty()
+                          ? "missing"
+                          : vision.Config().prompt_source)
                   << "\n";
         if (vision.Config().api_key.empty()) {
             std::cerr << "[CAMERA] Warning: no API key configured; set "
                          "CCME_AI_API_KEY unless the endpoint is key-less\n";
+        }
+        if (!vision.Config().prompt.empty()) {
+            std::cerr << "[CAMERA] AI prompt loaded: "
+                      << vision.Config().prompt.size() << " bytes\n";
         }
     }
 
@@ -192,8 +281,9 @@ void DissolutionDetector::Disconnect() {
 std::expected<DetectionResult, CameraError>
 DissolutionDetector::CheckDissolution() {
     if (!impl_->vision.IsConfigured()) {
-        std::cerr << "[CAMERA] AI API is not configured "
-                     "(set CCME_AI_API_URL / CCME_AI_MODEL / CCME_AI_API_KEY)\n";
+        std::cerr << "[CAMERA] AI is not configured "
+                     "(set CCME_AI_API_URL / CCME_AI_MODEL / CCME_AI_API_KEY "
+                     "and provide ~/.config/ccme/ai_prompt.txt)\n";
         return std::unexpected(CameraError::kAiNotConfigured);
     }
 

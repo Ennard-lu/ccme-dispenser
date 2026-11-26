@@ -91,6 +91,9 @@ $HOME/.local/etc/ccme/ccme.json
 
 该路径已在运行时搜索列表中，因此安装后无需额外设置环境变量。
 
+> AI 视觉提示词是独立文件，默认读取 `~/.config/ccme/ai_prompt.txt`，详见
+> [camera.md](camera.md#ai-提示词文件)。
+
 ## 应用修改
 
 配置在以下进程启动时读取：

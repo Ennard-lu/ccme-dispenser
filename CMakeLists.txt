@@ -60,7 +60,7 @@ set(CCME_AI_JPEG_QUALITY 85 CACHE STRING
 set(CCME_AI_IMAGE_MAX_SIDE 1024 CACHE STRING
     "Longest image side before upload, 0 disables resizing")
 set(CCME_AI_PROMPT "" CACHE STRING
-    "Extra instructions appended to the built-in vision prompt")
+    "Extra instructions appended to the prompt loaded from the prompt file")
 set(CCME_AI_DISABLE_THINKING OFF CACHE BOOL
     "Send thinking.type=disabled (recommended for Doubao-Seed-2.0-mini)")
 if(CCME_AI_DISABLE_THINKING)
@@ -238,6 +238,11 @@ install(FILES ${CMAKE_SOURCE_DIR}/dbus/org.ccme.conf
 # Runtime configuration. The services search this file at startup; changing it
 # does not require recompilation, only a restart of the affected services.
 install(FILES ${CMAKE_SOURCE_DIR}/config/ccme.json
+    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/ccme
+    COMPONENT backend
+)
+
+install(FILES ${CMAKE_SOURCE_DIR}/config/ai_prompt.txt
     DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/ccme
     COMPONENT backend
 )

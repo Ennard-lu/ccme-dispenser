@@ -15,17 +15,6 @@ namespace ccme::ai {
 
 namespace {
 
-constexpr std::string_view kDefaultPrompt =
-    "你是一个实验室自动化系统的视觉检测助手。图像是从烧杯正上方拍摄的溶液照片。\n"
-    "请判断固体溶质是否已经完全溶解。\n"
-    "判断标准：\n"
-    "1. 液体中不应存在明显的固体颗粒、晶体、粉末团块或未溶解的片状物；\n"
-    "2. 溶液可以澄清，也可以呈现均匀的浑浊或颜色，但不应有沉降在底部的固体残留；\n"
-    "3. 气泡、反光、液面波纹或容器本身的纹理不应被误判为未溶解固体。\n"
-    "只输出一个 JSON 对象，不要输出 Markdown 代码块或任何额外文字：\n"
-    "{\"dissolved\": true 或 false, \"confidence\": 0.0 到 1.0 之间的数字, "
-    "\"reasoning\": \"用一句简短中文说明判断依据\"}";
-
 struct Endpoint {
     std::string origin;
     std::string path;
@@ -204,7 +193,7 @@ struct Endpoint {
 
 [[nodiscard]] std::string BuildRequestBody(const VisionConfig& config,
                                            const VisionRequest& request) {
-    std::string system_prompt{kDefaultPrompt};
+    std::string system_prompt = config.prompt;
     if (!config.extra_prompt.empty()) {
         system_prompt += "\n\n额外要求：" + config.extra_prompt;
     }
@@ -265,7 +254,8 @@ OpenAiVisionClient::OpenAiVisionClient(VisionConfig config)
     : config_(std::move(config)) {}
 
 bool OpenAiVisionClient::IsConfigured() const noexcept {
-    return !config_.api_url.empty() && !config_.model.empty();
+    return !config_.api_url.empty() && !config_.model.empty() &&
+           !config_.prompt.empty();
 }
 
 std::expected<VisionVerdict, VisionErrorInfo> OpenAiVisionClient::Analyze(
@@ -273,7 +263,7 @@ std::expected<VisionVerdict, VisionErrorInfo> OpenAiVisionClient::Analyze(
     if (!IsConfigured()) {
         return std::unexpected(MakeError(
             VisionError::kNotConfigured, 0,
-            "AI API URL or model is not configured"));
+            "AI API URL, model, or prompt file is not configured"));
     }
     if (request.jpeg_frames.empty()) {
         return std::unexpected(MakeError(

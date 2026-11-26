@@ -36,7 +36,12 @@ struct VisionConfig {
     // reasoning-capable models such as Doubao-Seed-2.0-mini when low latency
     // matters. Leave false for plain OpenAI endpoints that reject the field.
     bool disable_thinking{false};
-    // Optional extra instructions appended to the built-in prompt.
+    // System prompt loaded from ~/.config/ccme/ai_prompt.txt (or an explicit
+    // CCME_AI_PROMPT_FILE). No prompt is hard-coded in the binary.
+    std::string prompt;
+    // Path the prompt was loaded from, for diagnostics.
+    std::string prompt_source;
+    // Optional extra instructions appended to the prompt file content.
     std::string extra_prompt;
 };
 

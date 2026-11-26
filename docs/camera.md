@@ -77,7 +77,7 @@ MPEG-TS 流；MJPEG 回退接口 `/api/stream` 优先读取 7778 的原始 H.264
 | `CCME_AI_FRAME_COUNT` | `3` | 每次检测上传的帧数 |
 | `CCME_AI_JPEG_QUALITY` | `85` | 上传帧的 JPEG 质量 |
 | `CCME_AI_IMAGE_MAX_SIDE` | `1024` | 上传前最长边限制，`0` 表示不缩放 |
-| `CCME_AI_PROMPT` | 空 | 追加到内置提示词后的额外要求 |
+| `CCME_AI_PROMPT` | 空 | 追加到提示词文件内容后的额外要求（可选） |
 | `CCME_AI_DISABLE_THINKING` | `OFF` | 发送 `thinking.type=disabled`，推荐用于 Doubao-Seed-2.0-mini 以降低延迟 |
 | `CCME_DISSOLUTION_TIMEOUT_SEC` | `3600` | 工作流等待溶解完成的最长时间（秒），`0` 表示不超时 |
 
@@ -91,6 +91,7 @@ export CCME_AI_API_KEY="sk-..."
 export CCME_AI_MODEL="gpt-4o-mini"
 export CCME_AI_TIMEOUT_SEC="30"
 export CCME_AI_PROMPT="请特别关注烧杯底部是否有未溶解的晶体。"
+export CCME_AI_PROMPT_FILE="$HOME/.config/ccme/ai_prompt.txt"
 export CCME_AI_DISABLE_THINKING="1"
 
 # 仅调试/演示时使用：跳过 AI 溶解检测
@@ -98,6 +99,70 @@ export CCME_AI_DISABLE_THINKING="1"
 ```
 
 `CCME_AI_API_KEY` 不会写入日志；只会在启动日志中显示为 `set` 或 `not set`。
+
+### AI 提示词文件
+
+系统提示词不再硬编码在程序中，`ccme-camera` 启动时从文本文件读取。默认路径：
+
+```text
+~/.config/ccme/ai_prompt.txt
+```
+
+查找顺序：
+
+1. `CCME_AI_PROMPT_FILE` 环境变量指定的文件
+2. `~/.config/ccme/ai_prompt.txt`
+3. `~/.local/etc/ccme/ai_prompt.txt`
+4. `/etc/ccme/ai_prompt.txt`
+5. `/usr/etc/ccme/ai_prompt.txt`
+6. `/usr/local/etc/ccme/ai_prompt.txt`
+7. `./config/ai_prompt.txt`（源码目录）
+8. `./ai_prompt.txt`
+
+创建用户级提示词：
+
+```bash
+mkdir -p ~/.config/ccme
+cat > ~/.config/ccme/ai_prompt.txt <<'EOF'
+你是一个实验室自动化系统的视觉检测助手。图像是从烧杯正上方拍摄的溶液照片。
+请判断固体溶质是否已经完全溶解。
+判断标准：
+1. 液体中不应存在明显的固体颗粒、晶体、粉末团块或未溶解的片状物；
+2. 溶液可以澄清，也可以呈现均匀的浑浊或颜色，但不应有沉降在底部的固体残留；
+3. 气泡、反光、液面波纹或容器本身的纹理不应被误判为未溶解固体。
+只输出一个 JSON 对象，不要输出 Markdown 代码块或任何额外文字：
+{"dissolved": true 或 false, "confidence": 0.0 到 1.0 之间的数字, "reasoning": "用一句简短中文说明判断依据"}
+EOF
+```
+
+也可以显式指定：
+
+```bash
+export CCME_AI_PROMPT_FILE="/path/to/ai_prompt.txt"
+```
+
+如果所有候选文件都不存在或内容为空：
+
+- `ccme-camera` 启动日志会提示 prompt 文件缺失
+- D-Bus `IsAiConfigured` 返回 `false`
+- 编排器会把错误码设为 `ai_not_configured`，并提示创建
+  `~/.config/ccme/ai_prompt.txt`
+
+修改提示词后需要重启 `ccme-camera` 才会生效。
+
+`CCME_AI_PROMPT` 仅用于追加额外要求，例如：
+
+```bash
+export CCME_AI_PROMPT="请特别关注烧杯底部是否有未溶解的晶体。"
+```
+
+最终发送的 system prompt 为：
+
+```text
+<ai_prompt.txt 的内容>
+
+额外要求：<CCME_AI_PROMPT 的内容>
+```
 
 ### OpenAI 兼容请求
 
@@ -107,7 +172,7 @@ export CCME_AI_DISABLE_THINKING="1"
 {
   "model": "gpt-4o-mini",
   "messages": [
-    { "role": "system", "content": "<内置溶解判断提示词>" },
+    { "role": "system", "content": "<从 ~/.config/ccme/ai_prompt.txt 读取的提示词>" },
     {
       "role": "user",
       "content": [
